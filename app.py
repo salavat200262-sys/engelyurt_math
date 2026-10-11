@@ -19,6 +19,7 @@ def init_db():
     with get_db() as conn:
         cursor = conn.cursor()
         
+        # 1. Таблица классов
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS classes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,16 +29,21 @@ def init_db():
             )
         ''')
 
+        # 2. Таблица учеников: с логином, паролем и моделью телефона
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS registered_students (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 student_name TEXT UNIQUE NOT NULL,
                 class_name TEXT NOT NULL,
-                device_token TEXT,
+                student_login TEXT UNIQUE NOT NULL,
+                student_password TEXT NOT NULL,
+                device_info TEXT NOT NULL,
+                device_token TEXT NOT NULL,
                 registered_at TEXT NOT NULL
             )
         ''')
 
+        # 3. Таблица учителей и суперадмина
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,6 +54,7 @@ def init_db():
             )
         ''')
 
+        # 4. Таблица вопросов
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS questions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,6 +73,7 @@ def init_db():
             )
         ''')
 
+        # 5. Таблица ответов
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS submissions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,6 +89,7 @@ def init_db():
             )
         ''')
 
+        # Начальные классы
         default_classes = [
             ("5-А", 24), ("5-Б", 23),
             ("6-А", 25), ("6-Б", 22),
@@ -92,6 +101,7 @@ def init_db():
         for c_name, count in default_classes:
             cursor.execute("INSERT OR IGNORE INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
 
+        # Создание суперадмина
         cursor.execute("SELECT id FROM users WHERE role = 'superadmin'")
         if not cursor.fetchone():
             default_super_pass = generate_password_hash("math2026")
@@ -100,6 +110,7 @@ def init_db():
                 VALUES (?, ?, ?, ?)
             ''', ("superadmin", default_super_pass, "Главный Администратор", "superadmin"))
 
+        # Создание учителя для проверки
         cursor.execute("SELECT id FROM users WHERE username = 'teacher1'")
         if not cursor.fetchone():
             default_teacher_pass = generate_password_hash("teacher123")
@@ -108,12 +119,13 @@ def init_db():
                 VALUES (?, ?, ?, ?)
             ''', ("teacher1", default_teacher_pass, "Учитель Математики", "teacher"))
 
+        # Начальные задачи
         cursor.execute("SELECT COUNT(*) FROM questions")
         if cursor.fetchone()[0] == 0:
             sample_questions = [
-                (1, "Главный Администратор", "Чему равна сумма углов любого выпуклого треугольника?", "90°", "180°", "360°", "270°", 1, 10, 25),
+                (1, "Главный Администратор", "Чему равна сумма углов любого треугольника?", "90°", "180°", "360°", "270°", 1, 10, 25),
                 (1, "Главный Администратор", "Какое число является наименьшим простым числом?", "0", "1", "2", "3", 2, 10, 20),
-                (2, "Учитель Математики", "Вычислите значение выражения: 2 + 2 × 2", "8", "6", "4", "10", 1, 10, 15),
+                (2, "Учитель Математики", "Вычислите: 2 + 2 × 2", "8", "6", "4", "10", 1, 10, 15),
                 (2, "Учитель Математики", "Квадратный корень из 144 равен...", "11", "12", "14", "16", 1, 10, 20),
                 (2, "Учитель Математики", "Сколько граней у стандартного куба?", "4", "6", "8", "12", 1, 10, 20)
             ]
@@ -127,6 +139,7 @@ def init_db():
 
 init_db()
 
+# Декораторы прав
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -143,64 +156,18 @@ def superadmin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# --- ОСНОВНЫЕ РОУТЫ ---
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/api/classes')
-# --- Полное управление классами: Добавление, Редактирование, Удаление ---
-@app.route('/api/admin/classes', methods=['POST', 'PUT', 'DELETE'])
-@login_required
-@superadmin_required
-def admin_manage_classes():
+def get_classes():
     with get_db() as conn:
         cursor = conn.cursor()
-        
-        # 1. Добавление нового класса
-        if request.method == 'POST':
-            d = request.json or {}
-            c_name = d.get('name', '').strip()
-            count = int(d.get('students_count', 25))
-            if not c_name:
-                return jsonify({"error": "Укажите название класса"}), 400
-            try:
-                cursor.execute("INSERT INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
-                conn.commit()
-                return jsonify({"success": True, "message": "Класс успешно добавлен"})
-            except sqlite3.IntegrityError:
-                return jsonify({"error": "Класс с таким названием уже существует"}), 400
-
-        # 2. Редактирование существующего класса (название и число учеников)
-        elif request.method == 'PUT':
-            d = request.json or {}
-            c_id = d.get('id')
-            c_name = d.get('name', '').strip()
-            count = int(d.get('students_count', 25))
-            if not c_id or not c_name:
-                return jsonify({"error": "Некорректные данные для редактирования"}), 400
-            try:
-                # Получаем старое имя класса, чтобы обновить записи в ответах
-                cursor.execute("SELECT name FROM classes WHERE id = ?", (c_id,))
-                old_row = cursor.fetchone()
-                if old_row:
-                    old_name = old_row['name']
-                    cursor.execute("UPDATE registered_students SET class_name = ? WHERE class_name = ?", (c_name, old_name))
-                    cursor.execute("UPDATE submissions SET class_name = ? WHERE class_name = ?", (c_name, old_name))
-
-                cursor.execute("UPDATE classes SET name = ?, students_count = ? WHERE id = ?", (c_name, count, c_id))
-                conn.commit()
-                return jsonify({"success": True, "message": "Данные класса обновлены"})
-            except sqlite3.IntegrityError:
-                return jsonify({"error": "Класс с таким названием уже существует"}), 400
-
-        # 3. Удаление класса
-        elif request.method == 'DELETE':
-            c_id = request.args.get('id')
-            if not c_id:
-                return jsonify({"error": "Не передан ID класса"}), 400
-            cursor.execute("DELETE FROM classes WHERE id = ?", (c_id,))
-            conn.commit()
-            return jsonify({"success": True, "message": "Класс удален"})
+        cursor.execute("SELECT id, name, students_count FROM classes ORDER BY name ASC")
+        rows = [dict(r) for r in cursor.fetchall()]
+    return jsonify(rows)
 
 @app.route('/api/leaderboard')
 def get_leaderboard():
@@ -237,63 +204,76 @@ def get_leaderboard():
         result.sort(key=lambda x: x['avg_score'], reverse=True)
     return jsonify(result)
 
-@app.route('/api/student/check-or-register', methods=['POST'])
-def check_or_register_student():
+# Регистрация / Авторизация ученика с записью телефона, логина и пароля
+@app.route('/api/student/auth', methods=['POST'])
+def student_auth():
     data = request.json or {}
     s_name = " ".join(data.get('student_name', '').strip().split())
     c_name = data.get('class_name', '').strip()
+    s_login = data.get('student_login', '').strip().lower()
+    s_password = data.get('student_password', '').strip()
     device_token = data.get('device_token', '').strip()
+    device_info = data.get('device_info', '').strip() or request.headers.get('User-Agent', 'Неизвестное устройство')[:120]
 
-    if not s_name or not c_name:
-        return jsonify({"error": "Укажите имя, фамилию и класс"}), 400
+    if not s_name or not c_name or not s_login or not s_password:
+        return jsonify({"error": "Заполните все поля: ФИО, класс, логин и пароль"}), 400
 
     parts = s_name.split()
     if len(parts) < 2:
-        return jsonify({"error": "Пожалуйста, введите и Фамилию, и Имя!"}), 400
+        return jsonify({"error": "Введите полные Фамилию и Имя!"}), 400
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM registered_students WHERE LOWER(student_name) = LOWER(?)", (s_name,))
-        existing = cursor.fetchone()
 
-        if existing:
-            if existing['class_name'] != c_name:
-                return jsonify({
-                    "error": f"Ученик «{s_name}» уже зарегистрирован за классом «{existing['class_name']}». Сменить класс нельзя!"
-                }), 403
+        # 1. Проверяем, существует ли уже такой логин
+        cursor.execute("SELECT * FROM registered_students WHERE student_login = ?", (s_login,))
+        user_by_login = cursor.fetchone()
+
+        if user_by_login:
+            # Если логин существует — это повторный вход, сверяем пароль и ФИО
+            if user_by_login['student_password'] != s_password:
+                return jsonify({"error": "Неверный пароль для логина «" + s_login + "»!"}), 403
             
-            if existing['device_token'] and device_token and existing['device_token'] != device_token:
-                return jsonify({
-                    "error": f"Аккаунт «{s_name}» привязан к другому устройству! Заходить можно только со своего телефона."
-                }), 403
+            if user_by_login['student_name'].lower() != s_name.lower():
+                return jsonify({"error": "Этот логин принадлежит другому ученику: «" + user_by_login['student_name'] + "»"}), 403
 
             return jsonify({
                 "success": True,
-                "student_name": existing['student_name'],
-                "class_name": existing['class_name'],
-                "is_new": False
+                "student_name": user_by_login['student_name'],
+                "class_name": user_by_login['class_name'],
+                "student_login": user_by_login['student_login']
             })
 
+        # 2. Проверяем, не регистрировался ли ученик с такими ФИО под другим логином
+        cursor.execute("SELECT * FROM registered_students WHERE LOWER(student_name) = LOWER(?)", (s_name,))
+        user_by_name = cursor.fetchone()
+        if user_by_name:
+            return jsonify({
+                "error": "Ученик «" + s_name + "» уже зарегистрирован с логином «" + user_by_name['student_login'] + "». Используйте свой логин!"
+            }), 403
+
+        # 3. Проверяем телефон: с одного телефона нельзя создавать второй аккаунт
         if device_token:
             cursor.execute("SELECT * FROM registered_students WHERE device_token = ?", (device_token,))
             device_owner = cursor.fetchone()
             if device_owner:
                 return jsonify({
-                    "error": f"С этого устройства уже играет «{device_owner['student_name']}» ({device_owner['class_name']}). Второй аккаунт запрещен!"
+                    "error": "С этого телефона уже играет «" + device_owner['student_name'] + "» (" + device_owner['class_name'] + "). Создание второго аккаунта запрещено!"
                 }), 403
 
+        # 4. Регистрируем нового ученика со всеми данными
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute('''
-            INSERT INTO registered_students (student_name, class_name, device_token, registered_at)
-            VALUES (?, ?, ?, ?)
-        ''', (s_name, c_name, device_token, now_str))
+            INSERT INTO registered_students (student_name, class_name, student_login, student_password, device_info, device_token, registered_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (s_name, c_name, s_login, s_password, device_info, device_token, now_str))
         conn.commit()
 
         return jsonify({
             "success": True,
             "student_name": s_name,
             "class_name": c_name,
-            "is_new": True
+            "student_login": s_login
         })
 
 @app.route('/api/quiz/questions')
@@ -360,6 +340,7 @@ def submit_answer():
         "points_earned": points_earned
     })
 
+# --- АДМИНКА ---
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
     data = request.json or {}
@@ -405,12 +386,14 @@ def admin_me():
         }
     })
 
-@app.route('/api/admin/classes', methods=['POST', 'DELETE'])
+# Полное управление классами (Добавить, Изменить, Удалить)
+@app.route('/api/admin/classes', methods=['POST', 'PUT', 'DELETE'])
 @login_required
 @superadmin_required
 def admin_manage_classes():
     with get_db() as conn:
         cursor = conn.cursor()
+        
         if request.method == 'POST':
             d = request.json or {}
             c_name = d.get('name', '').strip()
@@ -420,14 +403,36 @@ def admin_manage_classes():
             try:
                 cursor.execute("INSERT INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
                 conn.commit()
-                return jsonify({"success": True})
+                return jsonify({"success": True, "message": "Класс успешно добавлен"})
             except sqlite3.IntegrityError:
                 return jsonify({"error": "Класс с таким названием уже существует"}), 400
+
+        elif request.method == 'PUT':
+            d = request.json or {}
+            c_id = d.get('id')
+            c_name = d.get('name', '').strip()
+            count = int(d.get('students_count', 25))
+            if not c_id or not c_name:
+                return jsonify({"error": "Некорректные данные"}), 400
+            try:
+                cursor.execute("SELECT name FROM classes WHERE id = ?", (c_id,))
+                old_row = cursor.fetchone()
+                if old_row:
+                    old_name = old_row['name']
+                    cursor.execute("UPDATE registered_students SET class_name = ? WHERE class_name = ?", (c_name, old_name))
+                    cursor.execute("UPDATE submissions SET class_name = ? WHERE class_name = ?", (c_name, old_name))
+
+                cursor.execute("UPDATE classes SET name = ?, students_count = ? WHERE id = ?", (c_name, count, c_id))
+                conn.commit()
+                return jsonify({"success": True, "message": "Класс обновлен"})
+            except sqlite3.IntegrityError:
+                return jsonify({"error": "Класс с таким названием уже существует"}), 400
+
         elif request.method == 'DELETE':
             c_id = request.args.get('id')
             cursor.execute("DELETE FROM classes WHERE id = ?", (c_id,))
             conn.commit()
-            return jsonify({"success": True})
+            return jsonify({"success": True, "message": "Класс удален"})
 
 @app.route('/api/admin/questions', methods=['GET', 'POST', 'DELETE'])
 @login_required
@@ -450,7 +455,7 @@ def admin_questions():
             time_lim = int(d.get('time_limit', 30))
 
             if not text or not opt_a or not opt_b:
-                return jsonify({"error": "Заполните текст вопроса и варианты"}), 400
+                return jsonify({"error": "Заполните условие и варианты"}), 400
 
             cursor.execute('''
                 INSERT INTO questions (author_id, author_name, question_text, opt_a, opt_b, opt_c, opt_d, correct_idx, points, time_limit)
@@ -481,14 +486,55 @@ def admin_submissions():
         ''')
         return jsonify([dict(r) for r in cursor.fetchall()])
 
+# Выгрузка всех учеников с паролями, логинами и моделями телефонов (Только Суперадмин)
 @app.route('/api/admin/registered-students')
 @login_required
+@superadmin_required
 def admin_registered_students():
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM registered_students ORDER BY id DESC")
+        cursor.execute("SELECT id, student_name, class_name, student_login, student_password, device_info, registered_at FROM registered_students ORDER BY id DESC")
         return jsonify([dict(r) for r in cursor.fetchall()])
 
 @app.route('/api/admin/users', methods=['GET', 'POST', 'DELETE'])
 @login_required
-@superadmin_
+@superadmin_required
+def admin_users():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if request.method == 'GET':
+            cursor.execute("SELECT id, username, full_name, role FROM users ORDER BY id ASC")
+            return jsonify([dict(r) for r in cursor.fetchall()])
+
+        elif request.method == 'POST':
+            d = request.json or {}
+            uname = d.get('username', '').strip()
+            pword = d.get('password', '').strip()
+            fname = d.get('full_name', '').strip()
+            role = d.get('role', 'teacher')
+
+            if not uname or not pword or not fname:
+                return jsonify({"error": "Заполните все поля"}), 400
+
+            try:
+                hashed = generate_password_hash(pword)
+                cursor.execute("INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
+                               (uname, hashed, fname, role))
+                conn.commit()
+                return jsonify({"success": True})
+            except sqlite3.IntegrityError:
+                return jsonify({"error": "Пользователь с таким логином уже существует"}), 400
+
+        elif request.method == 'DELETE':
+            u_id = request.args.get('id')
+            cursor.execute("SELECT role FROM users WHERE id = ?", (u_id,))
+            u = cursor.fetchone()
+            if u and u['role'] == 'superadmin':
+                return jsonify({"error": "Нельзя удалить Главного Администратора"}), 400
+            cursor.execute("DELETE FROM users WHERE id = ?", (u_id,))
+            conn.commit()
+            return jsonify({"success": True})
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
