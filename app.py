@@ -84,6 +84,23 @@ def init_db():
             ("9-А", 22), ("9-Б", 25),
             ("10-А", 20),
             ("11-А", 18)
+            @app.route('/api/admin/classes', methods=['POST'])
+@login_required
+@superadmin_required
+def add_new_class():
+    d = request.json or {}
+    name = d.get('name', '').strip()
+    count = int(d.get('students_count', 25))
+    if not name:
+        return jsonify({"error": "Укажите название класса"}), 400
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO classes (name, students_count) VALUES (?, ?)", (name, count))
+            conn.commit()
+        return jsonify({"success": True})
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Такой класс уже добавлен"}), 400
         ]
         for c_name, count in default_classes:
             cursor.execute("INSERT OR IGNORE INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
