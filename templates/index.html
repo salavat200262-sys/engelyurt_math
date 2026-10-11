@@ -1,841 +1,486 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Неделя Математики | МБОУ «Энгель-Юртовская СШ №2»</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .gradient-math { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%); }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+import os
+import json
+import sqlite3
+from datetime import datetime
+from functools import wraps
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
 
-    <!-- НАВИГАЦИЯ -->
-    <header class="gradient-math text-white shadow-lg sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
-            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('arena')">
-                <div class="bg-white/20 p-2.5 rounded-xl backdrop-blur-sm">
-                    <i class="fa-solid fa-square-root-variable text-2xl text-amber-300"></i>
-                </div>
-                <div>
-                    <h1 class="font-extrabold text-lg sm:text-xl tracking-tight leading-none">БИТВА КЛАССОВ 2026</h1>
-                    <p class="text-xs text-blue-100 font-medium mt-0.5">МБОУ «Энгель-Юртовская СШ №2» • Неделя математики</p>
-                </div>
-            </div>
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'engelyurt-school2-math-secret-key-2026')
 
-            <!-- Вкладки -->
-            <nav class="flex items-center space-x-1 sm:space-x-2 bg-black/20 p-1 rounded-xl">
-                <button onclick="switchTab('arena')" id="tab-arena" class="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all bg-white text-blue-900 shadow">
-                    <i class="fa-solid fa-gamepad mr-1.5"></i>Арена
-                </button>
-                <button onclick="switchTab('leaderboard')" id="tab-leaderboard" class="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all text-white hover:bg-white/10">
-                    <i class="fa-solid fa-trophy mr-1.5 text-amber-300"></i>Лидерборд
-                </button>
-                <button onclick="switchTab('qr')" id="tab-qr" class="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all text-white hover:bg-white/10">
-                    <i class="fa-solid fa-qrcode mr-1.5"></i>QR-Плакат
-                </button>
-                <button onclick="switchTab('admin')" id="tab-admin" class="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all text-white hover:bg-white/10">
-                    <i class="fa-solid fa-user-shield mr-1.5"></i>Учителям
-                </button>
-            </nav>
-        </div>
-    </header>
+# Если на Render подключен постоянный диск, путь: /var/data/math_battle.db, иначе локальный файл
+DATABASE = '/var/data/math_battle.db' if os.path.exists('/var/data') else 'math_battle.db'
 
-    <!-- ОСНОВНОЙ КОНТЕНТ -->
-    <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-6">
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-        <!-- 1. СЕКЦИЯ: АРЕНА УЧЕНИКОВ -->
-        <section id="sec-arena" class="block space-y-6">
-            <!-- Экран входа ученика -->
-            <div id="student-login-box" class="max-w-lg mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-100">
-                <div class="text-center space-y-2 mb-6">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                        ⚡ Неделя Математики Онлайн
-                    </span>
-                    <h2 class="text-2xl font-bold text-slate-800">Вход для участников</h2>
-                    <p class="text-sm text-slate-500">Выбери свой класс и зарабатывай победные баллы!</p>
-                </div>
+def init_db():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        
+        # 1. Таблица классов
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS classes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                students_count INTEGER DEFAULT 25,
+                bonus_points INTEGER DEFAULT 0
+            )
+        ''')
 
-                <form onsubmit="handleStartQuiz(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Твой класс</label>
-                        <select id="student-class" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 font-semibold text-slate-800">
-                            <option value="">-- Выберите класс --</option>
-                            <!-- Подгружается динамически -->
-                        </select>
-                    </div>
+        # 2. Таблица зафиксированных участников (защита от мультиаккаунтов)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS registered_students (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_name TEXT UNIQUE NOT NULL,
+                class_name TEXT NOT NULL,
+                device_token TEXT,
+                registered_at TEXT NOT NULL
+            )
+        ''')
 
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Имя и Фамилия</label>
-                        <input id="student-name" type="text" required placeholder="Например: Мансур Ибрагимов" 
-                               class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 font-medium">
-                    </div>
+        # 3. Таблица администраторов и учителей
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                full_name TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'teacher'
+            )
+        ''')
 
-                    <button type="submit" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center space-x-2">
-                        <span>Вступить в бой за свой класс</span>
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-                </form>
+        # 4. Таблица вопросов
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author_id INTEGER,
+                author_name TEXT,
+                question_text TEXT NOT NULL,
+                opt_a TEXT NOT NULL,
+                opt_b TEXT NOT NULL,
+                opt_c TEXT NOT NULL,
+                opt_d TEXT NOT NULL,
+                correct_idx INTEGER NOT NULL,
+                points INTEGER DEFAULT 10,
+                time_limit INTEGER DEFAULT 30,
+                is_active INTEGER DEFAULT 1,
+                FOREIGN KEY (author_id) REFERENCES users (id)
+            )
+        ''')
 
-                <div class="mt-6 pt-5 border-t border-slate-100 text-xs text-slate-500 text-center">
-                    🏆 Средний балл каждого участника поднимает рейтинг класса в таблице лидеров!
-                </div>
-            </div>
+        # 5. Таблица ответов
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS submissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_name TEXT NOT NULL,
+                class_name TEXT NOT NULL,
+                question_id INTEGER NOT NULL,
+                selected_idx INTEGER NOT NULL,
+                is_correct INTEGER NOT NULL,
+                points_earned INTEGER NOT NULL,
+                time_taken INTEGER DEFAULT 0,
+                submitted_at TEXT NOT NULL,
+                FOREIGN KEY (question_id) REFERENCES questions (id)
+            )
+        ''')
 
-            <!-- Экран прохождения квиза -->
-            <div id="student-quiz-box" class="hidden max-w-2xl mx-auto space-y-4">
-                <!-- Карточка состояния -->
-                <div class="bg-white p-4 rounded-xl shadow border border-slate-200 flex justify-between items-center">
-                    <div>
-                        <span id="quiz-badge-class" class="text-xs font-bold px-2.5 py-1 rounded bg-blue-100 text-blue-800 mr-2">9-А</span>
-                        <span id="quiz-badge-name" class="font-semibold text-slate-700 text-sm">Имя Ученика</span>
-                    </div>
-                    <div class="flex items-center space-x-2 text-rose-600 font-bold text-lg" id="quiz-timer-box">
-                        <i class="fa-solid fa-clock"></i>
-                        <span id="quiz-timer">30</span>с
-                    </div>
-                </div>
+        # Создание суперадмина по умолчанию
+        cursor.execute("SELECT id FROM users WHERE role = 'superadmin'")
+        if not cursor.fetchone():
+            default_super_pass = generate_password_hash("math2026")
+            cursor.execute('''
+                INSERT INTO users (username, password_hash, full_name, role)
+                VALUES (?, ?, ?, ?)
+            ''', ("superadmin", default_super_pass, "Главный Администратор", "superadmin"))
 
-                <!-- Карточка вопроса -->
-                <div class="bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-100 space-y-6">
-                    <div class="flex justify-between items-start gap-4">
-                        <span id="quiz-points" class="text-xs font-extrabold uppercase px-3 py-1 bg-amber-100 text-amber-800 rounded-full">
-                            +10 баллов
-                        </span>
-                        <span id="quiz-author" class="text-xs text-slate-400">Автор: Учитель</span>
-                    </div>
+        # Создание демо-учителя
+        cursor.execute("SELECT id FROM users WHERE username = 'teacher1'")
+        if not cursor.fetchone():
+            default_teacher_pass = generate_password_hash("teacher123")
+            cursor.execute('''
+                INSERT INTO users (username, password_hash, full_name, role)
+                VALUES (?, ?, ?, ?)
+            ''', ("teacher1", default_teacher_pass, "Учитель Математики", "teacher"))
 
-                    <h3 id="quiz-question-text" class="text-lg sm:text-xl font-bold text-slate-800 leading-snug">
-                        Текст вопроса...
-                    </h3>
+        # Начальные классы
+        default_classes = [
+            ("5-А", 24), ("5-Б", 23),
+            ("6-А", 25), ("6-Б", 22),
+            ("7-А", 26), ("7-Б", 25),
+            ("8-А", 24), ("8-Б", 22),
+            ("9-А", 22), ("9-Б", 25),
+            ("10-А", 20), ("11-А", 18)
+        ]
+        for c_name, count in default_classes:
+            cursor.execute("INSERT OR IGNORE INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
 
-                    <!-- Варианты ответов -->
-                    <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                        <!-- Кнопки генерируются JS -->
-                    </div>
+        conn.commit()
 
-                    <!-- Статус / Фидбек -->
-                    <div id="quiz-feedback" class="hidden p-4 rounded-xl text-center font-bold text-sm"></div>
+init_db()
 
-                    <div class="flex justify-between items-center pt-2">
-                        <button onclick="exitQuiz()" class="text-xs text-slate-500 hover:text-slate-800 underline">
-                            Завершить и выйти к лидерборду
-                        </button>
-                    </div>
-                </div>
-            </div>
+# Декораторы прав
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
-            <!-- Экран, когда все вопросы пройдены -->
-            <div id="student-complete-box" class="hidden max-w-lg mx-auto bg-white rounded-2xl shadow-xl p-8 text-center space-y-4">
-                <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto">
-                    <i class="fa-solid fa-circle-check"></i>
-                </div>
-                <h2 class="text-2xl font-bold text-slate-800">Отличная работа!</h2>
-                <p class="text-slate-600 text-sm">Ты ответил на все доступные задания недели на данный момент. Новые вопросы от учителей появятся завтра!</p>
-                <button onclick="switchTab('leaderboard')" class="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow hover:bg-blue-700">
-                    Посмотреть позицию своего класса
-                </button>
-            </div>
-        </section>
+def superadmin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('role') != 'superadmin':
+            return jsonify({"error": "Требуются права Главного Администратора"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
-        <!-- 2. СЕКЦИЯ: ТУРНИРНАЯ ТАБЛИЦА (ЛИДЕРБОРД) -->
-        <section id="sec-leaderboard" class="hidden space-y-6">
-            <div class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-6 sm:p-8 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <span class="text-xs font-bold uppercase tracking-wider text-amber-300">Официальный кубок недели</span>
-                    <h2 class="text-2xl sm:text-3xl font-extrabold mt-1">Турнирная Таблица Классов</h2>
-                    <p class="text-sm text-blue-200 mt-1">Рейтинг рассчитывается по среднему баллу на ученика: побеждает сплоченность всего класса!</p>
-                </div>
-                <button onclick="loadLeaderboard()" class="px-4 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold flex items-center space-x-2 border border-white/20">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                    <span>Обновить результаты</span>
-                </button>
-            </div>
+# --- РОУТЫ СТРАНИЦЫ И УЧЕНИКОВ ---
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-            <div class="bg-white rounded-2xl shadow border border-slate-200 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-100 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
-                            <tr>
-                                <th class="py-3 px-4">Место</th>
-                                <th class="py-3 px-4">Класс</th>
-                                <th class="py-3 px-4 text-center">Участников</th>
-                                <th class="py-3 px-4 text-center">Всего очков</th>
-                                <th class="py-3 px-4 text-right">Удельный балл (Рейтинг)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leaderboard-body" class="divide-y divide-slate-100">
-                            <!-- Заполняется JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
+@app.route('/api/classes')
+def get_classes():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, students_count FROM classes ORDER BY name ASC")
+        rows = [dict(r) for r in cursor.fetchall()]
+    return jsonify(rows)
 
-        <!-- 3. СЕКЦИЯ: QR-ПЛАКАТ ДЛЯ РАСПЕЧАТКИ -->
-        <section id="sec-qr" class="hidden max-w-2xl mx-auto space-y-6">
-            <div class="bg-white p-8 rounded-3xl shadow-2xl border-4 border-blue-600 text-center space-y-6" id="printable-poster">
-                <div class="space-y-1">
-                    <div class="inline-block px-4 py-1 rounded-full bg-blue-100 text-blue-900 font-extrabold text-xs uppercase tracking-widest">
-                        МБОУ «Энгель-Юртовская СШ №2»
-                    </div>
-                    <h2 class="text-3xl font-black text-slate-900 tracking-tight">НЕДЕЛЯ МАТЕМАТИКИ 2026</h2>
-                    <p class="text-base font-semibold text-blue-600">ОНЛАЙН-БИТВА МЕЖДУ КЛАССАМИ</p>
-                </div>
-
-                <div class="p-6 bg-slate-50 border-2 border-dashed border-blue-200 rounded-2xl inline-block mx-auto shadow-inner">
-                    <div id="qrcode-box" class="flex justify-center"></div>
-                    <p class="text-xs font-mono text-slate-500 mt-3 font-bold" id="qr-url-text">http://school-math.ru</p>
-                </div>
-
-                <div class="space-y-2 max-w-md mx-auto">
-                    <p class="text-sm font-bold text-slate-800">📸 Наведи камеру телефона на QR-код</p>
-                    <p class="text-xs text-slate-500 leading-relaxed">
-                        1. Выбери свой класс • 2. Отвечай на ежедневные задачи за секунды • 3. Принеси кубок победителя своему кабинету!
-                    </p>
-                </div>
-
-                <div class="pt-4 border-t border-slate-100 flex justify-around text-xs font-bold text-slate-600">
-                    <span>🏆 Главный приз победителям</span>
-                    <span>⚡ Ежедневные блиц-раунды</span>
-                </div>
-            </div>
-
-            <div class="flex justify-center space-x-3">
-                <button onclick="window.print()" class="px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow flex items-center space-x-2">
-                    <i class="fa-solid fa-print"></i>
-                    <span>Распечатать плакат на А4</span>
-                </button>
-            </div>
-        </section>
-
-        <!-- 4. СЕКЦИЯ: АДМИН-ПАНЕЛЬ ДЛЯ УЧИТЕЛЕЙ И СУПЕРАДМИНА -->
-        <section id="sec-admin" class="hidden space-y-6">
-            <!-- Экран входа админа -->
-            <div id="admin-login-box" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
-                <div class="text-center space-y-2 mb-6">
-                    <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center text-xl mx-auto">
-                        <i class="fa-solid fa-lock"></i>
-                    </div>
-                    <h2 class="text-xl font-bold text-slate-800">Панель Учителей</h2>
-                    <p class="text-xs text-slate-500">Добавление вопросов и мониторинг ответов</p>
-                </div>
-
-                <form onsubmit="handleAdminLogin(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Логин</label>
-                        <input id="admin-user" type="text" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Пароль</label>
-                        <input id="admin-pass" type="password" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
-                    </div>
-                    <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow text-sm">
-                        Войти в систему
-                    </button>
-                </form>
-
-                <div class="mt-6 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1">
-                    <p class="font-bold">Данные по умолчанию:</p>
-                    <p>Суперадмин: <code class="bg-white px-1 rounded">superadmin</code> / <code class="bg-white px-1 rounded">math2026</code></p>
-                    <p>Учитель: <code class="bg-white px-1 rounded">teacher1</code> / <code class="bg-white px-1 rounded">teacher123</code></p>
-                </div>
-            </div>
-
-            <!-- Экран управления админа -->
-            <div id="admin-dashboard-box" class="hidden space-y-6">
-                <!-- Верхняя панель админа -->
-                <div class="bg-white p-4 sm:p-6 rounded-2xl shadow border border-slate-200 flex flex-wrap justify-between items-center gap-4">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold" id="admin-avatar">А</div>
-                        <div>
-                            <h3 class="font-bold text-slate-800" id="admin-name-display">Имя Администратора</h3>
-                            <span id="admin-role-badge" class="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800">Учитель</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="handleAdminLogout()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg">
-                            <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i>Выйти
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Подвкладки админки -->
-                <div class="flex border-b border-slate-200 space-x-4">
-                    <button onclick="switchAdminSubTab('questions')" id="subtab-questions" class="pb-3 border-b-2 border-blue-600 font-bold text-blue-600 text-sm">
-                        <i class="fa-solid fa-list-check mr-1.5"></i>Управление вопросами
-                    </button>
-                    <button onclick="switchAdminSubTab('submissions')" id="subtab-submissions" class="pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm">
-                        <i class="fa-solid fa-clock-rotate-left mr-1.5"></i>Ответы учеников (Журнал)
-                    </button>
-                    <button onclick="switchAdminSubTab('users')" id="subtab-users" class="hidden pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm">
-                        <i class="fa-solid fa-users-gear mr-1.5"></i>Администраторы (Только вы)
-                    </button>
-                </div>
-
-                <!-- 1. ПОДВКЛАДКА: ВОПРОСЫ -->
-                <div id="adminsub-questions" class="space-y-6">
-                    <!-- Форма добавления нового вопроса -->
-                    <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <h4 class="font-bold text-slate-800 text-base mb-4 flex items-center">
-                            <i class="fa-solid fa-circle-plus text-blue-600 mr-2"></i>Добавить математическую задачу
-                        </h4>
-                        <form onsubmit="handleAddQuestion(event)" class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Текст вопроса или условие задачи</label>
-                                <textarea id="new-q-text" required rows="2" placeholder="Например: Вычислите площадь прямоугольника со сторонами 8 см и 15 см" 
-                                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 text-sm"></textarea>
-                            </div>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Вариант А</label>
-                                    <input id="new-opt-a" type="text" required placeholder="Вариант 1" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Вариант Б</label>
-                                    <input id="new-opt-b" type="text" required placeholder="Вариант 2" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Вариант В</label>
-                                    <input id="new-opt-c" type="text" required placeholder="Вариант 3" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Вариант Г</label>
-                                    <input id="new-opt-d" type="text" required placeholder="Вариант 4" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Правильный ответ</label>
-                                    <select id="new-correct" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold text-emerald-700 bg-emerald-50">
-                                        <option value="0">Вариант А</option>
-                                        <option value="1">Вариант Б</option>
-                                        <option value="2">Вариант В</option>
-                                        <option value="3">Вариант Г</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Баллы за решение</label>
-                                    <input id="new-points" type="number" value="10" min="1" max="100" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Таймер (секунд)</label>
-                                    <input id="new-time" type="number" value="30" min="10" max="180" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                            </div>
-
-                            <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow">
-                                Опубликовать задачу
-                            </button>
-                        </form>
-                    </div>
-
-                    <!-- Список опубликованных вопросов -->
-                    <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <h4 class="font-bold text-slate-800 text-base mb-4">Банк активных задач</h4>
-                        <div id="questions-list" class="space-y-3">
-                            <!-- Заполняется JS -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2. ПОДВКЛАДКА: ЖУРНАЛ ОТВЕТОВ -->
-                <div id="adminsub-submissions" class="hidden space-y-4">
-                    <div class="bg-white p-4 rounded-xl shadow border border-slate-200 flex justify-between items-center">
-                        <span class="text-xs font-bold text-slate-500 uppercase">Живая лента ответов учеников</span>
-                        <button onclick="loadSubmissions()" class="text-xs text-blue-600 font-bold hover:underline">
-                            <i class="fa-solid fa-arrows-rotate mr-1"></i>Обновить ленту
-                        </button>
-                    </div>
-                    <div class="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-100 text-slate-600 uppercase font-bold border-b">
-                                <tr>
-                                    <th class="py-2.5 px-3">Время</th>
-                                    <th class="py-2.5 px-3">Ученик</th>
-                                    <th class="py-2.5 px-3">Класс</th>
-                                    <th class="py-2.5 px-3">Задача</th>
-                                    <th class="py-2.5 px-3 text-center">Результат</th>
-                                    <th class="py-2.5 px-3 text-right">Баллы</th>
-                                </tr>
-                            </thead>
-                            <tbody id="submissions-body" class="divide-y divide-slate-100">
-                                <!-- Заполняется JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- 3. ПОДВКЛАДКА: УПРАВЛЕНИЕ АДМИНАМИ (ТОЛЬКО СУПЕРАДМИН) -->
-                <div id="adminsub-users" class="hidden space-y-6">
-                    <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <h4 class="font-bold text-slate-800 text-base mb-4 flex items-center">
-                            <i class="fa-solid fa-user-plus text-emerald-600 mr-2"></i>Добавить учителя в систему
-                        </h4>
-                        <form onsubmit="handleAddTeacher(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 mb-1">ФИО Учителя</label>
-                                <input id="new-t-name" type="text" required placeholder="Ахмадов М.С." class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 mb-1">Логин</label>
-                                <input id="new-t-user" type="text" required placeholder="math_teacher2" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 mb-1">Пароль</label>
-                                <input id="new-t-pass" type="text" required placeholder="пароль..." class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                            </div>
-                            <div class="sm:col-span-3 pt-2">
-                                <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow">
-                                    Выдать доступ учителю
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <h4 class="font-bold text-slate-800 text-base mb-4">Список всех администраторов</h4>
-                        <div id="teachers-list" class="space-y-2">
-                            <!-- Заполняется JS -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- ПОДВАЛ -->
-    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-        МБОУ «Энгель-Юртовская СШ №2» • Неделя математики 2026 • Система «Битва Классов»
-    </footer>
-
-    <!-- JS СКРИПТ ПРИЛОЖЕНИЯ -->
-    <script>
-        let currentTab = 'arena';
-        let currentStudent = null;
-        let currentQuizQuestions = [];
-        let currentQIndex = 0;
-        let quizTimerInterval = null;
-        let timeLeft = 30;
-        let currentUser = null;
-
-        // Инициализация
-        document.addEventListener('DOMContentLoaded', () => {
-            loadClasses();
-            loadLeaderboard();
-            checkAdminAuth();
-            renderQrCode();
-        });
-
-        function switchTab(tabId) {
-            currentTab = tabId;
-            ['arena', 'leaderboard', 'qr', 'admin'].forEach(t => {
-                document.getElementById(`sec-${t}`).classList.toggle('hidden', t !== tabId);
-                const btn = document.getElementById(`tab-${t}`);
-                if (t === tabId) {
-                    btn.className = 'px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all bg-white text-blue-900 shadow';
-                } else {
-                    btn.className = 'px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all text-white hover:bg-white/10';
-                }
-            });
-
-            if (tabId === 'leaderboard') loadLeaderboard();
-        }
-
-        // Загрузка классов
-        async function loadClasses() {
-            try {
-                const res = await fetch('/api/classes');
-                const classes = await res.json();
-                const sel = document.getElementById('student-class');
-                sel.innerHTML = '<option value="">-- Выберите класс --</option>';
-                classes.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.name;
-                    opt.textContent = `${c.name} (${c.students_count} уч.)`;
-                    sel.appendChild(opt);
-                });
-            } catch(e) { console.error(e); }
-        }
-
-        // Генерация QR-кода
-        function renderQrCode() {
-            const qrBox = document.getElementById('qrcode-box');
-            qrBox.innerHTML = '';
-            const currentUrl = window.location.origin || window.location.href;
-            document.getElementById('qr-url-text').textContent = currentUrl;
-            new QRCode(qrBox, {
-                text: currentUrl,
-                width: 180,
-                height: 180,
-                colorDark : "#1e3a8a",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-        }
-
-        // Загрузка лидерборда
-        async function loadLeaderboard() {
-            try {
-                const res = await fetch('/api/leaderboard');
-                const data = await res.json();
-                const tbody = document.getElementById('leaderboard-body');
-                tbody.innerHTML = '';
-
-                data.forEach((row, idx) => {
-                    let rankBadge = `<span class="font-bold text-slate-500">${idx + 1}</span>`;
-                    if (idx === 0) rankBadge = '<span class="text-xl">🥇</span>';
-                    else if (idx === 1) rankBadge = '<span class="text-xl">🥈</span>';
-                    else if (idx === 2) rankBadge = '<span class="text-xl">🥉</span>';
-
-                    const tr = document.createElement('tr');
-                    tr.className = idx < 3 ? 'bg-amber-50/40 font-semibold' : 'hover:bg-slate-50';
-                    tr.innerHTML = `
-                        <td class="py-3 px-4">${rankBadge}</td>
-                        <td class="py-3 px-4 font-bold text-slate-800">${row.class_name}</td>
-                        <td class="py-3 px-4 text-center text-slate-600">${row.participants} / ${row.students_count}</td>
-                        <td class="py-3 px-4 text-center font-bold text-blue-600">${row.total_points}</td>
-                        <td class="py-3 px-4 text-right font-extrabold text-emerald-600 text-base">${row.avg_score}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } catch(e) { console.error(e); }
-        }
-
-        // --- УЧЕНИЧЕСКИЙ КВИЗ ---
-        async function handleStartQuiz(e) {
-            e.preventDefault();
-            const cName = document.getElementById('student-class').value;
-            const sName = document.getElementById('student-name').value.trim();
-            if (!cName || !sName) return;
-
-            currentStudent = { class_name: cName, student_name: sName };
-
-            try {
-                const res = await fetch(`/api/quiz/questions?class_name=${encodeURIComponent(cName)}&student_name=${encodeURIComponent(sName)}`);
-                const qs = await res.json();
-                
-                if (qs.length === 0) {
-                    document.getElementById('student-login-box').classList.add('hidden');
-                    document.getElementById('student-complete-box').classList.remove('hidden');
-                    return;
-                }
-
-                currentQuizQuestions = qs;
-                currentQIndex = 0;
-
-                document.getElementById('student-login-box').classList.add('hidden');
-                document.getElementById('student-quiz-box').classList.remove('hidden');
-                document.getElementById('quiz-badge-class').textContent = cName;
-                document.getElementById('quiz-badge-name').textContent = sName;
-
-                showNextQuestion();
-            } catch(err) {
-                alert('Ошибка соединения с сервером');
-            }
-        }
-
-        function showNextQuestion() {
-            if (currentQIndex >= currentQuizQuestions.length) {
-                document.getElementById('student-quiz-box').classList.add('hidden');
-                document.getElementById('student-complete-box').classList.remove('hidden');
-                return;
-            }
-
-            const q = currentQuizQuestions[currentQIndex];
-            document.getElementById('quiz-points').textContent = `+${q.points} баллов`;
-            document.getElementById('quiz-author').textContent = `Автор: ${q.author_name || 'Учитель'}`;
-            document.getElementById('quiz-question-text').textContent = q.question_text;
+@app.route('/api/leaderboard')
+def get_leaderboard():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, students_count, bonus_points FROM classes")
+        classes = cursor.fetchall()
+        
+        cursor.execute('''
+            SELECT class_name, SUM(points_earned) as total_pts, COUNT(DISTINCT student_name) as participants
+            FROM submissions
+            GROUP BY class_name
+        ''')
+        stats = {r['class_name']: r for r in cursor.fetchall()}
+        
+        result = []
+        for c in classes:
+            c_name = c['name']
+            s_count = max(1, c['students_count'])
+            st = stats.get(c_name, {'total_pts': 0, 'participants': 0})
+            total = (st['total_pts'] or 0) + c['bonus_points']
+            participants = st['participants'] or 0
+            avg_score = round(total / s_count, 1)
             
-            const feedback = document.getElementById('quiz-feedback');
-            feedback.classList.add('hidden');
+            result.append({
+                "class_name": c_name,
+                "students_count": s_count,
+                "total_points": total,
+                "bonus_points": c['bonus_points'],
+                "participants": participants,
+                "avg_score": avg_score
+            })
+            
+        result.sort(key=lambda x: x['avg_score'], reverse=True)
+    return jsonify(result)
 
-            const optsBox = document.getElementById('quiz-options');
-            optsBox.innerHTML = '';
+# Фиксация телефона и регистрация
+@app.route('/api/student/check-or-register', methods=['POST'])
+def check_or_register_student():
+    data = request.json or {}
+    s_name = " ".join(data.get('student_name', '').strip().split())
+    c_name = data.get('class_name', '').strip()
+    device_token = data.get('device_token', '').strip()
 
-            const opts = [q.opt_a, q.opt_b, q.opt_c, q.opt_d];
-            opts.forEach((optText, idx) => {
-                const btn = document.createElement('button');
-                btn.className = 'w-full text-left p-4 rounded-xl border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 font-medium text-slate-800 transition active:scale-98';
-                btn.innerHTML = `<span class="font-bold text-blue-600 mr-2">${['А', 'Б', 'В', 'Г'][idx]})</span> ${optText}`;
-                btn.onclick = () => submitAnswer(idx);
-                optsBox.appendChild(btn);
-            });
+    if not s_name or not c_name:
+        return jsonify({"error": "Укажите имя, фамилию и класс"}), 400
 
-            // Запуск таймера
-            clearInterval(quizTimerInterval);
-            timeLeft = q.time_limit || 30;
-            document.getElementById('quiz-timer').textContent = timeLeft;
-            quizTimerInterval = setInterval(() => {
-                timeLeft--;
-                document.getElementById('quiz-timer').textContent = timeLeft;
-                if (timeLeft <= 0) {
-                    clearInterval(quizTimerInterval);
-                    submitAnswer(-1); // Время вышло
+    parts = s_name.split()
+    if len(parts) < 2:
+        return jsonify({"error": "Пожалуйста, введите и Фамилию, и Имя!"}), 400
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM registered_students WHERE LOWER(student_name) = LOWER(?)", (s_name,))
+        existing = cursor.fetchone()
+
+        if existing:
+            if existing['class_name'] != c_name:
+                return jsonify({
+                    "error": f"Ученик «{s_name}» уже зарегистрирован за классом «{existing['class_name']}». Сменить класс нельзя!"
+                }), 403
+            
+            if existing['device_token'] and device_token and existing['device_token'] != device_token:
+                return jsonify({
+                    "error": f"Аккаунт «{s_name}» привязан к другому устройству! Заходить можно только со своего телефона."
+                }), 403
+
+            return jsonify({
+                "success": True,
+                "student_name": existing['student_name'],
+                "class_name": existing['class_name'],
+                "is_new": False
+            })
+
+        if device_token:
+            cursor.execute("SELECT * FROM registered_students WHERE device_token = ?", (device_token,))
+            device_owner = cursor.fetchone()
+            if device_owner:
+                return jsonify({
+                    "error": f"С этого устройства уже играет «{device_owner['student_name']}» ({device_owner['class_name']}). Второй аккаунт запрещен!"
+                }), 403
+
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute('''
+            INSERT INTO registered_students (student_name, class_name, device_token, registered_at)
+            VALUES (?, ?, ?, ?)
+        ''', (s_name, c_name, device_token, now_str))
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "student_name": s_name,
+            "class_name": c_name,
+            "is_new": True
+        })
+
+@app.route('/api/quiz/questions')
+def get_quiz_questions():
+    student_name = " ".join(request.args.get('student_name', '').strip().split())
+    class_name = request.args.get('class_name', '').strip()
+    
+    if not student_name or not class_name:
+        return jsonify({"error": "Укажите имя и класс"}), 400
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT q.id, q.question_text, q.opt_a, q.opt_b, q.opt_c, q.opt_d, q.points, q.time_limit, q.author_name
+            FROM questions q
+            WHERE q.is_active = 1
+              AND q.id NOT IN (
+                  SELECT question_id FROM submissions
+                  WHERE LOWER(student_name) = LOWER(?) AND class_name = ?
+              )
+            ORDER BY RANDOM()
+        ''', (student_name, class_name))
+        
+        rows = [dict(r) for r in cursor.fetchall()]
+    return jsonify(rows)
+
+@app.route('/api/quiz/submit', methods=['POST'])
+def submit_answer():
+    data = request.json or {}
+    student_name = " ".join(data.get('student_name', '').strip().split())
+    class_name = data.get('class_name', '').strip()
+    question_id = data.get('question_id')
+    selected_idx = data.get('selected_idx')
+    time_taken = data.get('time_taken', 0)
+
+    if not student_name or not class_name or question_id is None or selected_idx is None:
+        return jsonify({"error": "Неполные данные"}), 400
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM submissions WHERE LOWER(student_name) = LOWER(?) AND class_name = ? AND question_id = ?",
+                       (student_name, class_name, question_id))
+        if cursor.fetchone():
+            return jsonify({"error": "Вы уже отвечали на этот вопрос"}), 400
+
+        cursor.execute("SELECT correct_idx, points FROM questions WHERE id = ?", (question_id,))
+        q = cursor.fetchone()
+        if not q:
+            return jsonify({"error": "Вопрос не найден"}), 404
+
+        is_correct = 1 if int(selected_idx) == int(q['correct_idx']) else 0
+        points_earned = q['points'] if is_correct else 0
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        cursor.execute('''
+            INSERT INTO submissions (student_name, class_name, question_id, selected_idx, is_correct, points_earned, time_taken, submitted_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (student_name, class_name, question_id, selected_idx, is_correct, points_earned, time_taken, now_str))
+        conn.commit()
+
+    return jsonify({
+        "is_correct": bool(is_correct),
+        "correct_idx": q['correct_idx'],
+        "points_earned": points_earned
+    })
+
+# --- РОУТЫ АДМИНКИ ---
+@app.route('/api/admin/login', methods=['POST'])
+def admin_login():
+    data = request.json or {}
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        user = cursor.fetchone()
+
+        if user and check_password_hash(user['password_hash'], password):
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['full_name'] = user['full_name']
+            session['role'] = user['role']
+            return jsonify({
+                "success": True,
+                "user": {
+                    "username": user['username'],
+                    "full_name": user['full_name'],
+                    "role": user['role']
                 }
-            }, 1000);
+            })
+
+    return jsonify({"error": "Неверный логин или пароль"}), 401
+
+@app.route('/api/admin/logout', methods=['POST'])
+def admin_logout():
+    session.clear()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/me')
+def admin_me():
+    if 'user_id' not in session:
+        return jsonify({"authenticated": False})
+    return jsonify({
+        "authenticated": True,
+        "user": {
+            "username": session['username'],
+            "full_name": session['full_name'],
+            "role": session['role']
         }
+    })
 
-        async function submitAnswer(selectedIdx) {
-            clearInterval(quizTimerInterval);
-            const q = currentQuizQuestions[currentQIndex];
-            const optsBox = document.getElementById('quiz-options');
-            Array.from(optsBox.children).forEach(btn => btn.disabled = true);
+# Управление классами (Форма)
+@app.route('/api/admin/classes', methods=['POST', 'DELETE'])
+@login_required
+@superadmin_required
+def admin_manage_classes():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if request.method == 'POST':
+            d = request.json or {}
+            c_name = d.get('name', '').strip()
+            count = int(d.get('students_count', 25))
+            if not c_name:
+                return jsonify({"error": "Укажите название класса"}), 400
+            try:
+                cursor.execute("INSERT INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
+                conn.commit()
+                return jsonify({"success": True})
+            except sqlite3.IntegrityError:
+                return jsonify({"error": "Класс с таким названием уже существует"}), 400
+        elif request.method == 'DELETE':
+            c_id = request.args.get('id')
+            cursor.execute("DELETE FROM classes WHERE id = ?", (c_id,))
+            conn.commit()
+            return jsonify({"success": True})
 
-            try {
-                const res = await fetch('/api/quiz/submit', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        student_name: currentStudent.student_name,
-                        class_name: currentStudent.class_name,
-                        question_id: q.id,
-                        selected_idx: selectedIdx,
-                        time_taken: (q.time_limit || 30) - timeLeft
-                    })
-                });
-                const ans = await res.json();
+@app.route('/api/admin/questions', methods=['GET', 'POST', 'DELETE'])
+@login_required
+def admin_questions():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if request.method == 'GET':
+            cursor.execute("SELECT * FROM questions ORDER BY id DESC")
+            return jsonify([dict(r) for r in cursor.fetchall()])
 
-                const feedback = document.getElementById('quiz-feedback');
-                feedback.classList.remove('hidden');
+        elif request.method == 'POST':
+            d = request.json or {}
+            text = d.get('question_text', '').strip()
+            opt_a = d.get('opt_a', '').strip()
+            opt_b = d.get('opt_b', '').strip()
+            opt_c = d.get('opt_c', '').strip()
+            opt_d = d.get('opt_d', '').strip()
+            correct = int(d.get('correct_idx', 0))
+            points = int(d.get('points', 10))
+            time_lim = int(d.get('time_limit', 30))
 
-                if (ans.is_correct) {
-                    feedback.className = 'p-4 rounded-xl text-center font-bold text-sm bg-emerald-100 text-emerald-800';
-                    feedback.innerHTML = `🎉 Верно! Твой класс получил +${ans.points_earned} баллов!`;
-                } else {
-                    feedback.className = 'p-4 rounded-xl text-center font-bold text-sm bg-rose-100 text-rose-800';
-                    feedback.innerHTML = selectedIdx === -1 ? '⏰ Время вышло!' : '❌ Неверный ответ. Не унывай, впереди еще задачи!';
-                }
+            if not text or not opt_a or not opt_b:
+                return jsonify({"error": "Заполните текст вопроса и варианты"}), 400
 
-                setTimeout(() => {
-                    currentQIndex++;
-                    showNextQuestion();
-                }, 1600);
+            cursor.execute('''
+                INSERT INTO questions (author_id, author_name, question_text, opt_a, opt_b, opt_c, opt_d, correct_idx, points, time_limit)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (session['user_id'], session['full_name'], text, opt_a, opt_b, opt_c, opt_d, correct, points, time_lim))
+            conn.commit()
+            return jsonify({"success": True})
 
-            } catch(e) {
-                console.error(e);
-            }
-        }
+        elif request.method == 'DELETE':
+            q_id = request.args.get('id')
+            if session['role'] == 'superadmin':
+                cursor.execute("DELETE FROM questions WHERE id = ?", (q_id,))
+            else:
+                cursor.execute("DELETE FROM questions WHERE id = ? AND author_id = ?", (q_id, session['user_id']))
+            conn.commit()
+            return jsonify({"success": True})
 
-        function exitQuiz() {
-            clearInterval(quizTimerInterval);
-            document.getElementById('student-quiz-box').classList.add('hidden');
-            document.getElementById('student-login-box').classList.remove('hidden');
-            switchTab('leaderboard');
-        }
+@app.route('/api/admin/submissions')
+@login_required
+def admin_submissions():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT s.*, q.question_text
+            FROM submissions s
+            JOIN questions q ON s.question_id = q.id
+            ORDER BY s.id DESC LIMIT 300
+        ''')
+        return jsonify([dict(r) for r in cursor.fetchall()])
 
-        // --- АДМИНКА ---
-        async function checkAdminAuth() {
-            try {
-                const res = await fetch('/api/admin/me');
-                const data = await res.json();
-                if (data.authenticated) {
-                    currentUser = data.user;
-                    showAdminDashboard();
-                }
-            } catch(e) {}
-        }
+@app.route('/api/admin/registered-students')
+@login_required
+def admin_registered_students():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM registered_students ORDER BY id DESC")
+        return jsonify([dict(r) for r in cursor.fetchall()])
 
-        async function handleAdminLogin(e) {
-            e.preventDefault();
-            const username = document.getElementById('admin-user').value.trim();
-            const password = document.getElementById('admin-pass').value.trim();
+@app.route('/api/admin/users', methods=['GET', 'POST', 'DELETE'])
+@login_required
+@superadmin_required
+def admin_users():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if request.method == 'GET':
+            cursor.execute("SELECT id, username, full_name, role FROM users ORDER BY id ASC")
+            return jsonify([dict(r) for r in cursor.fetchall()])
 
-            try {
-                const res = await fetch('/api/admin/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    currentUser = data.user;
-                    showAdminDashboard();
-                } else {
-                    alert(data.error || 'Ошибка входа');
-                }
-            } catch(err) { alert('Ошибка сети'); }
-        }
+        elif request.method == 'POST':
+            d = request.json or {}
+            uname = d.get('username', '').strip()
+            pword = d.get('password', '').strip()
+            fname = d.get('full_name', '').strip()
+            role = d.get('role', 'teacher')
 
-        function showAdminDashboard() {
-            document.getElementById('admin-login-box').classList.add('hidden');
-            document.getElementById('admin-dashboard-box').classList.remove('hidden');
-            document.getElementById('admin-name-display').textContent = currentUser.full_name;
-            document.getElementById('admin-avatar').textContent = currentUser.full_name[0];
+            if not uname or not pword or not fname:
+                return jsonify({"error": "Заполните все поля для нового администратора"}), 400
 
-            const badge = document.getElementById('admin-role-badge');
-            if (currentUser.role === 'superadmin') {
-                badge.textContent = 'Главный Администратор (Суперадмин)';
-                badge.className = 'text-xs px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-800';
-                document.getElementById('subtab-users').classList.remove('hidden');
-            } else {
-                badge.textContent = 'Учитель Математики';
-                badge.className = 'text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800';
-                document.getElementById('subtab-users').classList.add('hidden');
-            }
+            try:
+                hashed = generate_password_hash(pword)
+                cursor.execute("INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
+                               (uname, hashed, fname, role))
+                conn.commit()
+                return jsonify({"success": True})
+            except sqlite3.IntegrityError:
+                return jsonify({"error": "Пользователь с таким логином уже существует"}), 400
 
-            loadAdminQuestions();
-            loadSubmissions();
-            if (currentUser.role === 'superadmin') loadTeachersList();
-        }
+        elif request.method == 'DELETE':
+            u_id = request.args.get('id')
+            cursor.execute("SELECT role FROM users WHERE id = ?", (u_id,))
+            u = cursor.fetchone()
+            if u and u['role'] == 'superadmin':
+                return jsonify({"error": "Нельзя удалить Главного Администратора"}), 400
+            cursor.execute("DELETE FROM users WHERE id = ?", (u_id,))
+            conn.commit()
+            return jsonify({"success": True})
 
-        async function handleAdminLogout() {
-            await fetch('/api/admin/logout', { method: 'POST' });
-            currentUser = null;
-            document.getElementById('admin-dashboard-box').classList.add('hidden');
-            document.getElementById('admin-login-box').classList.remove('hidden');
-        }
-
-        function switchAdminSubTab(sub) {
-            ['questions', 'submissions', 'users'].forEach(s => {
-                const sec = document.getElementById(`adminsub-${s}`);
-                const btn = document.getElementById(`subtab-${s}`);
-                if (sec) sec.classList.toggle('hidden', s !== sub);
-                if (btn) {
-                    if (s === sub) {
-                        btn.className = 'pb-3 border-b-2 border-blue-600 font-bold text-blue-600 text-sm';
-                    } else {
-                        btn.className = 'pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm';
-                    }
-                }
-            });
-        }
-
-        async function loadAdminQuestions() {
-            try {
-                const res = await fetch('/api/admin/questions');
-                const list = await res.json();
-                const box = document.getElementById('questions-list');
-                box.innerHTML = '';
-
-                list.forEach(q => {
-                    const div = document.createElement('div');
-                    div.className = 'p-3 rounded-xl border border-slate-200 flex justify-between items-center text-xs';
-                    div.innerHTML = `
-                        <div>
-                            <p class="font-bold text-slate-800 text-sm">${q.question_text}</p>
-                            <span class="text-slate-400">Автор: ${q.author_name} • ${q.points} баллов • ${q.time_limit}с</span>
-                        </div>
-                        <button onclick="deleteQuestion(${q.id})" class="text-rose-600 hover:text-rose-800 px-2 py-1 font-bold">
-                            Удалить
-                        </button>
-                    `;
-                    box.appendChild(div);
-                });
-            } catch(e) {}
-        }
-
-        async function handleAddQuestion(e) {
-            e.preventDefault();
-            const payload = {
-                question_text: document.getElementById('new-q-text').value,
-                opt_a: document.getElementById('new-opt-a').value,
-                opt_b: document.getElementById('new-opt-b').value,
-                opt_c: document.getElementById('new-opt-c').value,
-                opt_d: document.getElementById('new-opt-d').value,
-                correct_idx: document.getElementById('new-correct').value,
-                points: document.getElementById('new-points').value,
-                time_limit: document.getElementById('new-time').value
-            };
-
-            const res = await fetch('/api/admin/questions', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-                alert('Задача успешно опубликована!');
-                document.getElementById('new-q-text').value = '';
-                loadAdminQuestions();
-            }
-        }
-
-        async function deleteQuestion(id) {
-            if (!confirm('Удалить этот вопрос?')) return;
-            await fetch(`/api/admin/questions?id=${id}`, { method: 'DELETE' });
-            loadAdminQuestions();
-        }
-
-        async function loadSubmissions() {
-            try {
-                const res = await fetch('/api/admin/submissions');
-                const list = await res.json();
-                const tbody = document.getElementById('submissions-body');
-                tbody.innerHTML = '';
-
-                list.forEach(s => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'hover:bg-slate-50';
-                    tr.innerHTML = `
-                        <td class="py-2 px-3 text-slate-400">${s.submitted_at.slice(11)}</td>
-                        <td class="py-2 px-3 font-bold text-slate-800">${s.student_name}</td>
-                        <td class="py-2 px-3 font-semibold text-blue-600">${s.class_name}</td>
-                        <td class="py-2 px-3 text-slate-600 max-w-xs truncate">${s.question_text}</td>
-                        <td class="py-2 px-3 text-center">${s.is_correct ? '<span class="text-emerald-600 font-bold">✓ Верно</span>' : '<span class="text-rose-500 font-bold">✕ Неверно</span>'}</td>
-                        <td class="py-2 px-3 text-right font-bold">${s.points_earned}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } catch(e) {}
-        }
-
-        async function loadTeachersList() {
-            try {
-                const res = await fetch('/api/admin/users');
-                const list = await res.json();
-                const box = document.getElementById('teachers-list');
-                box.innerHTML = '';
-                list.forEach(u => {
-                    const div = document.createElement('div');
-                    div.className = 'flex justify-between items-center p-2 rounded-lg bg-slate-50 border text-xs';
-                    div.innerHTML = `
-                        <div>
-                            <span class="font-bold text-slate-800">${u.full_name}</span> 
-                            <span class="text-slate-400">(@${u.username})</span> — 
-                            <span class="font-semibold text-blue-600">${u.role === 'superadmin' ? 'Суперадмин' : 'Учитель'}</span>
-                        </div>
-                        ${u.role !== 'superadmin' ? `<button onclick="deleteTeacher(${u.id})" class="text-rose-600 font-bold hover:underline">Удалить</button>` : '<span class="text-slate-400">Владелец</span>'}
-                    `;
-                    box.appendChild(div);
-                });
-            } catch(e) {}
-        }
-
-        async function handleAddTeacher(e) {
-            e.preventDefault();
-            const payload = {
-                full_name: document.getElementById('new-t-name').value,
-                username: document.getElementById('new-t-user').value,
-                password: document.getElementById('new-t-pass').value,
-                role: 'teacher'
-            };
-            const res = await fetch('/api/admin/users', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert('Учитель добавлен!');
-                loadTeachersList();
-            } else {
-                alert(data.error || 'Ошибка');
-            }
-        }
-
-        async function deleteTeacher(id) {
-            if (!confirm('Отозвать доступ у учителя?')) return;
-            await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' });
-            loadTeachersList();
-        }
-    </script>
-</body>
-</html>
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
