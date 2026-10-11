@@ -15,7 +15,7 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
-    <!-- НАВИГАЦИЯ -->
+    <!-- ШАПКА САЙТА -->
     <header class="gradient-math text-white shadow-lg sticky top-0 z-50">
         <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
             <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('arena')">
@@ -28,7 +28,6 @@
                 </div>
             </div>
 
-            <!-- Вкладки -->
             <nav class="flex items-center space-x-1 sm:space-x-2 bg-black/20 p-1 rounded-xl">
                 <button onclick="switchTab('arena')" id="tab-arena" class="px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all bg-white text-blue-900 shadow">
                     <i class="fa-solid fa-gamepad mr-1.5"></i>Арена
@@ -49,29 +48,26 @@
     <!-- ОСНОВНОЙ КОНТЕНТ -->
     <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-6">
 
-        <!-- 1. СЕКЦИЯ: АРЕНА УЧЕНИКОВ -->
+        <!-- 1. АРЕНА УЧЕНИКОВ -->
         <section id="sec-arena" class="block space-y-6">
             
-            <!-- Карточка уже привязанного участника -->
+            <!-- Если телефон уже привязан к профилю -->
             <div id="saved-profile-box" class="hidden max-w-lg mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8 border-2 border-blue-500">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg">
-                            <i class="fa-solid fa-user-check"></i>
-                        </div>
-                        <div>
-                            <span class="text-xs uppercase font-extrabold text-blue-600 tracking-wider">Ваш телефон привязан</span>
-                            <h3 id="saved-student-name" class="text-xl font-bold text-slate-800">Имя Ученика</h3>
-                            <p id="saved-student-class" class="text-xs text-slate-500 font-bold">Класс: 9-А</p>
-                        </div>
+                <div class="flex items-center space-x-4 pb-4 border-b border-slate-100">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-xl">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs uppercase font-extrabold text-blue-600">Ваш смартфон привязан</span>
+                        <h3 id="saved-student-name" class="text-xl font-bold text-slate-800">Имя</h3>
+                        <p id="saved-student-class" class="text-xs text-slate-500 font-bold">Класс</p>
                     </div>
                 </div>
 
                 <div class="mt-4 space-y-3">
                     <p class="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        🔒 Данные зафиксированы на этом смартфоне. Создание других аккаунтов или смена класса заблокированы.
+                        📱 Вход выполнен с вашего устройства. Создание дубликатов запрещено.
                     </p>
-
                     <button onclick="startQuizWithSavedProfile()" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center space-x-2">
                         <span>Продолжить бой за свой класс</span>
                         <i class="fa-solid fa-arrow-right"></i>
@@ -79,20 +75,20 @@
                 </div>
             </div>
 
-            <!-- Экран первой регистрации ученика -->
+            <!-- Регистрация нового ученика с логином и паролем -->
             <div id="student-login-box" class="max-w-lg mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-100">
                 <div class="text-center space-y-2 mb-6">
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                        ⚡ Неделя Математики Онлайн
+                        ⚡ Вход и Регистрация Участника
                     </span>
-                    <h2 class="text-2xl font-bold text-slate-800">Регистрация участника</h2>
-                    <p class="text-sm text-slate-500">Укажи свои настоящие Фамилию и Имя. Они будут привязаны к твоему телефону на всю неделю!</p>
+                    <h2 class="text-2xl font-bold text-slate-800">Битва Классов Онлайн</h2>
+                    <p class="text-xs text-slate-500">Придумай логин и пароль. Они запомнятся на твоем телефоне на всю неделю!</p>
                 </div>
 
-                <form onsubmit="handleStartQuiz(event)" class="space-y-4">
+                <form onsubmit="handleStudentAuth(event)" class="space-y-3">
                     <div>
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Твой класс</label>
-                        <select id="student-class" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 font-semibold text-slate-800">
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Класс</label>
+                        <select id="student-class" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 text-sm font-semibold">
                             <option value="">-- Выберите класс --</option>
                         </select>
                     </div>
@@ -100,21 +96,33 @@
                     <div>
                         <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Фамилия и Имя</label>
                         <input id="student-name" type="text" required placeholder="Например: Ибрагимов Мансур" 
-                               class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 font-medium">
-                        <span class="text-[11px] text-slate-400 mt-1 block">⚠️ Обязательно вводите и Фамилию, и Имя без ошибок.</span>
+                               class="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 text-sm">
                     </div>
 
-                    <div id="reg-error-msg" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-bold"></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Придумай Логин</label>
+                            <input id="student-login-inp" type="text" required placeholder="mansur09" 
+                                   class="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 text-sm font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Придумай Пароль</label>
+                            <input id="student-pass-inp" type="text" required placeholder="пароль..." 
+                                   class="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 text-sm font-mono">
+                        </div>
+                    </div>
 
-                    <button type="submit" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center space-x-2">
+                    <div id="auth-error-msg" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-bold"></div>
+
+                    <button type="submit" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95 flex items-center justify-center space-x-2 mt-2">
                         <span>Зафиксировать телефон и начать</span>
                         <i class="fa-solid fa-arrow-right"></i>
                     </button>
                 </form>
 
-                <div class="mt-6 pt-5 border-t border-slate-100 text-xs text-slate-500 text-center">
-                    🛡️ Защита от накруток: с одного телефона засчитываются ответы только одного конкретного ученика.
-                </div>
+                <p class="text-[11px] text-slate-400 text-center mt-4">
+                    🛡️ Модель смартфона и браузер фиксируются в протоколе турнира.
+                </p>
             </div>
 
             <!-- Экран квиза -->
@@ -124,7 +132,7 @@
                         <span id="quiz-badge-class" class="text-xs font-bold px-2.5 py-1 rounded bg-blue-100 text-blue-800 mr-2">9-А</span>
                         <span id="quiz-badge-name" class="font-semibold text-slate-700 text-sm">Имя Ученика</span>
                     </div>
-                    <div class="flex items-center space-x-2 text-rose-600 font-bold text-lg" id="quiz-timer-box">
+                    <div class="flex items-center space-x-2 text-rose-600 font-bold text-lg">
                         <i class="fa-solid fa-clock"></i>
                         <span id="quiz-timer">30</span>с
                     </div>
@@ -132,74 +140,63 @@
 
                 <div class="bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-100 space-y-6">
                     <div class="flex justify-between items-start gap-4">
-                        <span id="quiz-points" class="text-xs font-extrabold uppercase px-3 py-1 bg-amber-100 text-amber-800 rounded-full">
-                            +10 баллов
-                        </span>
+                        <span id="quiz-points" class="text-xs font-extrabold uppercase px-3 py-1 bg-amber-100 text-amber-800 rounded-full">+10 баллов</span>
                         <span id="quiz-author" class="text-xs text-slate-400">Автор: Учитель</span>
                     </div>
 
-                    <h3 id="quiz-question-text" class="text-lg sm:text-xl font-bold text-slate-800 leading-snug">
-                        Текст вопроса...
-                    </h3>
+                    <h3 id="quiz-question-text" class="text-lg sm:text-xl font-bold text-slate-800 leading-snug">Текст вопроса...</h3>
 
                     <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2"></div>
-
                     <div id="quiz-feedback" class="hidden p-4 rounded-xl text-center font-bold text-sm"></div>
 
-                    <div class="flex justify-between items-center pt-2">
-                        <button onclick="exitQuiz()" class="text-xs text-slate-500 hover:text-slate-800 underline">
-                            Выйти к лидерборду
-                        </button>
-                    </div>
+                    <button onclick="exitQuiz()" class="text-xs text-slate-500 hover:text-slate-800 underline">Выйти к турнирной таблице</button>
                 </div>
             </div>
 
-            <!-- Завершение -->
+            <!-- Экран завершения -->
             <div id="student-complete-box" class="hidden max-w-lg mx-auto bg-white rounded-2xl shadow-xl p-8 text-center space-y-4">
                 <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto">
                     <i class="fa-solid fa-circle-check"></i>
                 </div>
-                <h2 class="text-2xl font-bold text-slate-800">Все задания выполнены!</h2>
-                <p class="text-slate-600 text-sm">Ты дал ответы на все опубликованные вопросы. Новые задачи от учителей появятся завтра!</p>
+                <h2 class="text-2xl font-bold text-slate-800">Все задачи решены!</h2>
+                <p class="text-slate-600 text-sm">Ты дал ответы на все текущие задания. Новые задачи появятся завтра!</p>
                 <button onclick="switchTab('leaderboard')" class="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow hover:bg-blue-700">
-                    Посмотреть позицию своего класса
+                    Посмотреть рейтинг своего класса
                 </button>
             </div>
         </section>
 
-        <!-- 2. СЕКЦИЯ: ТУРНИРНАЯ ТАБЛИЦА (ЛИДЕРБОРД) -->
+        <!-- 2. ЛИДЕРБОРД -->
         <section id="sec-leaderboard" class="hidden space-y-6">
             <div class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-6 sm:p-8 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                     <span class="text-xs font-bold uppercase tracking-wider text-amber-300">Официальный кубок недели</span>
                     <h2 class="text-2xl sm:text-3xl font-extrabold mt-1">Турнирная Таблица Классов</h2>
-                    <p class="text-sm text-blue-200 mt-1">Рейтинг рассчитывается по среднему баллу на ученика: побеждает сплоченность всего класса!</p>
+                    <p class="text-sm text-blue-200 mt-1">Рейтинг = Средний балл на ученика: побеждает сплоченность класса!</p>
                 </div>
                 <button onclick="loadLeaderboard()" class="px-4 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold flex items-center space-x-2 border border-white/20">
                     <i class="fa-solid fa-arrows-rotate"></i>
-                    <span>Обновить результаты</span>
+                    <span>Обновить</span>
                 </button>
             </div>
 
             <div class="bg-white rounded-2xl shadow border border-slate-200 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-100 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
-                            <tr>
-                                <th class="py-3 px-4">Место</th>
-                                <th class="py-3 px-4">Класс</th>
-                                <th class="py-3 px-4 text-center">Участников</th>
-                                <th class="py-3 px-4 text-center">Всего очков</th>
-                                <th class="py-3 px-4 text-right">Удельный балл (Рейтинг)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leaderboard-body" class="divide-y divide-slate-100"></tbody>
-                    </table>
-                </div>
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-100 text-slate-600 text-xs uppercase font-bold border-b">
+                        <tr>
+                            <th class="py-3 px-4">Место</th>
+                            <th class="py-3 px-4">Класс</th>
+                            <th class="py-3 px-4 text-center">Участников</th>
+                            <th class="py-3 px-4 text-center">Очков</th>
+                            <th class="py-3 px-4 text-right">Средний рейтинг</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body" class="divide-y divide-slate-100"></tbody>
+                </table>
             </div>
         </section>
 
-        <!-- 3. СЕКЦИЯ: QR-ПЛАКАТ -->
+        <!-- 3. QR-ПЛАКАТ -->
         <section id="sec-qr" class="hidden max-w-2xl mx-auto space-y-6">
             <div class="bg-white p-8 rounded-3xl shadow-2xl border-4 border-blue-600 text-center space-y-6">
                 <div class="space-y-1">
@@ -212,23 +209,13 @@
 
                 <div class="p-6 bg-slate-50 border-2 border-dashed border-blue-200 rounded-2xl inline-block mx-auto shadow-inner">
                     <div id="qrcode-box" class="flex justify-center"></div>
-                    <p class="text-xs font-mono text-slate-500 mt-3 font-bold" id="qr-url-text">http://school-math.ru</p>
+                    <p class="text-xs font-mono text-slate-500 mt-3 font-bold" id="qr-url-text"></p>
                 </div>
 
-                <div class="space-y-2 max-w-md mx-auto">
-                    <p class="text-sm font-bold text-slate-800">📸 Наведи камеру телефона на QR-код</p>
-                    <p class="text-xs text-slate-500 leading-relaxed">
-                        1. Зарегистрируй свой телефон • 2. Отвечай на ежедневные задачи • 3. Принеси кубок победы своему классу!
-                    </p>
-                </div>
-
-                <div class="pt-4 border-t border-slate-100 flex justify-around text-xs font-bold text-slate-600">
-                    <span>🏆 Главный приз победителям</span>
-                    <span>⚡ 1 участник = 1 телефон</span>
-                </div>
+                <p class="text-sm font-bold text-slate-800">📸 Наведи камеру телефона, введи логин и борись за кубок!</p>
             </div>
 
-            <div class="flex justify-center space-x-3">
+            <div class="flex justify-center">
                 <button onclick="window.print()" class="px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow flex items-center space-x-2">
                     <i class="fa-solid fa-print"></i>
                     <span>Распечатать плакат на А4</span>
@@ -236,148 +223,164 @@
             </div>
         </section>
 
-        <!-- 4. СЕКЦИЯ: АДМИН-ПАНЕЛЬ -->
+        <!-- 4. АДМИН-ПАНЕЛЬ -->
         <section id="sec-admin" class="hidden space-y-6">
-            <!-- Вход админа -->
             <div id="admin-login-box" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
                 <div class="text-center space-y-2 mb-6">
                     <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center text-xl mx-auto">
                         <i class="fa-solid fa-lock"></i>
                     </div>
                     <h2 class="text-xl font-bold text-slate-800">Панель Учителей</h2>
-                    <p class="text-xs text-slate-500">Добавление вопросов и мониторинг ответов</p>
                 </div>
 
                 <form onsubmit="handleAdminLogin(event)" class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Логин</label>
-                        <input id="admin-user" type="text" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                        <input id="admin-user" type="text" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Пароль</label>
-                        <input id="admin-pass" type="password" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                        <input id="admin-pass" type="password" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm">
                     </div>
                     <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow text-sm">
                         Войти в систему
                     </button>
                 </form>
 
-                <div class="mt-6 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1">
-                    <p class="font-bold">Данные по умолчанию:</p>
-                    <p>Суперадмин: <code class="bg-white px-1 rounded">superadmin</code> / <code class="bg-white px-1 rounded">math2026</code></p>
-                    <p>Учитель: <code class="bg-white px-1 rounded">teacher1</code> / <code class="bg-white px-1 rounded">teacher123</code></p>
+                <div class="mt-6 p-3 bg-slate-50 rounded-xl border text-xs text-slate-600">
+                    <p class="font-bold">Главный админ (Вы):</p>
+                    <p><code class="bg-white px-1">superadmin</code> / <code class="bg-white px-1">math2026</code></p>
                 </div>
             </div>
 
             <!-- Главный дашборд админа -->
             <div id="admin-dashboard-box" class="hidden space-y-6">
-                <div class="bg-white p-4 sm:p-6 rounded-2xl shadow border border-slate-200 flex flex-wrap justify-between items-center gap-4">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold" id="admin-avatar">А</div>
-                        <div>
-                            <h3 class="font-bold text-slate-800" id="admin-name-display">Имя Администратора</h3>
-                            <span id="admin-role-badge" class="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800">Учитель</span>
-                        </div>
+                <div class="bg-white p-4 sm:p-6 rounded-2xl shadow border border-slate-200 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-slate-800" id="admin-name-display">Администратор</h3>
+                        <span id="admin-role-badge" class="text-xs px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-800">Суперадмин</span>
                     </div>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="handleAdminLogout()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg">
-                            <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i>Выйти
-                        </button>
-                    </div>
+                    <button onclick="handleAdminLogout()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg">Выйти</button>
                 </div>
 
-                <!-- Подвкладки админки -->
                 <div class="flex border-b border-slate-200 space-x-4 overflow-x-auto">
-                    <button onclick="switchAdminSubTab('questions')" id="subtab-questions" class="pb-3 border-b-2 border-blue-600 font-bold text-blue-600 text-sm whitespace-nowrap">
-                        <i class="fa-solid fa-list-check mr-1.5"></i>Управление вопросами
+                    <button onclick="switchAdminSubTab('students')" id="subtab-students" class="pb-3 border-b-2 border-blue-600 font-bold text-blue-600 text-sm whitespace-nowrap">
+                        <i class="fa-solid fa-mobile-screen-button mr-1.5"></i>Ученики, Телефоны и Пароли
+                    </button>
+                    <button onclick="switchAdminSubTab('classes')" id="subtab-classes" class="pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm whitespace-nowrap">
+                        <i class="fa-solid fa-school mr-1.5"></i>Управление Классами
+                    </button>
+                    <button onclick="switchAdminSubTab('questions')" id="subtab-questions" class="pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm whitespace-nowrap">
+                        <i class="fa-solid fa-list-check mr-1.5"></i>Задачи
                     </button>
                     <button onclick="switchAdminSubTab('submissions')" id="subtab-submissions" class="pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm whitespace-nowrap">
-                        <i class="fa-solid fa-clock-rotate-left mr-1.5"></i>Ответы учеников
+                        <i class="fa-solid fa-clock-rotate-left mr-1.5"></i>Ответы
                     </button>
-                    <button onclick="switchAdminSubTab('students')" id="subtab-students" class="pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm whitespace-nowrap">
-                        <i class="fa-solid fa-address-book mr-1.5"></i>База участников
-                    </button>
-                    <button onclick="switchAdminSubTab('classes')" id="subtab-classes" class="hidden pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm whitespace-nowrap">
-                        <i class="fa-solid fa-school mr-1.5"></i>Управление классами
-                    </button>
-                    <button onclick="switchAdminSubTab('users')" id="subtab-users" class="hidden pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm whitespace-nowrap">
-                        <i class="fa-solid fa-users-gear mr-1.5"></i>Учителя-админы
+                    <button onclick="switchAdminSubTab('users')" id="subtab-users" class="pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm whitespace-nowrap">
+                        <i class="fa-solid fa-users-gear mr-1.5"></i>Учителя
                     </button>
                 </div>
 
-                <!-- 1. ПОДВКЛАДКА: ВОПРОСЫ -->
-                <div id="adminsub-questions" class="space-y-6">
+                <!-- 1. ТАБЛИЦА: УЧЕНИКИ, МОДЕЛИ ТЕЛЕФОНОВ, ЛОГИНЫ И ПАРОЛИ -->
+                <div id="adminsub-students" class="space-y-4">
+                    <div class="bg-white p-4 rounded-xl shadow border border-slate-200 flex justify-between items-center">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-sm">Протокол регистрации устройств</h4>
+                            <p class="text-xs text-slate-400">Полные данные: ФИО, класс, логин, пароль и модель телефона</p>
+                        </div>
+                        <button onclick="loadRegisteredStudents()" class="text-xs text-blue-600 font-bold hover:underline">
+                            <i class="fa-solid fa-arrows-rotate mr-1"></i>Обновить список
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-xl shadow border border-slate-200 overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 text-slate-600 uppercase font-bold border-b">
+                                <tr>
+                                    <th class="py-3 px-3">ФИО Ученика</th>
+                                    <th class="py-3 px-3">Класс</th>
+                                    <th class="py-3 px-3">Логин</th>
+                                    <th class="py-3 px-3">Введённый Пароль</th>
+                                    <th class="py-3 px-3">Устройство / Телефон</th>
+                                    <th class="py-3 px-3 text-right">Дата регистрации</th>
+                                </tr>
+                            </thead>
+                            <tbody id="students-body" class="divide-y divide-slate-100 font-medium"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 2. УПРАВЛЕНИЕ КЛАССАМИ (ДОБАВИТЬ, РЕДАКТИРОВАТЬ, УДАЛИТЬ) -->
+                <div id="adminsub-classes" class="hidden space-y-6">
                     <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <h4 class="font-bold text-slate-800 text-base mb-4 flex items-center">
-                            <i class="fa-solid fa-circle-plus text-blue-600 mr-2"></i>Добавить математическую задачу
-                        </h4>
-                        <form onsubmit="handleAddQuestion(event)" class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Текст вопроса или условие задачи</label>
-                                <textarea id="new-q-text" required rows="2" placeholder="Например: Вычислите площадь прямоугольника со сторонами 8 см и 15 см" 
-                                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 text-sm"></textarea>
-                            </div>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Вариант А</label>
-                                    <input id="new-opt-a" type="text" required placeholder="Вариант 1" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Вариант Б</label>
-                                    <input id="new-opt-b" type="text" required placeholder="Вариант 2" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Вариант В</label>
-                                    <input id="new-opt-c" type="text" required placeholder="Вариант 3" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Вариант Г</label>
-                                    <input id="new-opt-d" type="text" required placeholder="Вариант 4" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Правильный ответ</label>
-                                    <select id="new-correct" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold text-emerald-700 bg-emerald-50">
-                                        <option value="0">Вариант А</option>
-                                        <option value="1">Вариант Б</option>
-                                        <option value="2">Вариант В</option>
-                                        <option value="3">Вариант Г</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Баллы за решение</label>
-                                    <input id="new-points" type="number" value="10" min="1" max="100" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Таймер (секунд)</label>
-                                    <input id="new-time" type="number" value="30" min="10" max="180" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                                </div>
-                            </div>
-
-                            <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow">
-                                Опубликовать задачу
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 id="class-form-title" class="font-bold text-slate-800 text-base flex items-center">
+                                <i class="fa-solid fa-plus-circle text-blue-600 mr-2"></i>Добавить класс в турнир
+                            </h4>
+                            <button id="cancel-edit-btn" onclick="resetClassForm()" class="hidden px-3 py-1 text-xs bg-slate-100 font-bold rounded">
+                                Отменить редактирование
                             </button>
+                        </div>
+
+                        <form id="class-action-form" onsubmit="handleSaveClass(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Название класса</label>
+                                <input id="form-class-name" type="text" required placeholder="Например: 9-В" class="w-full px-3 py-2 rounded-lg border text-sm font-semibold">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Количество учеников</label>
+                                <input id="form-class-count" type="number" required value="25" min="1" max="50" class="w-full px-3 py-2 rounded-lg border text-sm font-semibold">
+                            </div>
+                            <div class="sm:flex sm:items-end">
+                                <button type="submit" id="form-class-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm shadow">
+                                    + Добавить класс
+                                </button>
+                            </div>
                         </form>
                     </div>
 
                     <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <h4 class="font-bold text-slate-800 text-base mb-4">Банк активных задач</h4>
-                        <div id="questions-list" class="space-y-3"></div>
+                        <h4 class="font-bold text-slate-800 text-base mb-4">Все классы школы</h4>
+                        <div id="admin-classes-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3"></div>
                     </div>
                 </div>
 
-                <!-- 2. ПОДВКЛАДКА: ЖУРНАЛ ОТВЕТОВ -->
-                <div id="adminsub-submissions" class="hidden space-y-4">
-                    <div class="bg-white p-4 rounded-xl shadow border border-slate-200 flex justify-between items-center">
-                        <span class="text-xs font-bold text-slate-500 uppercase">Живая лента ответов учеников</span>
-                        <button onclick="loadSubmissions()" class="text-xs text-blue-600 font-bold hover:underline">
-                            <i class="fa-solid fa-arrows-rotate mr-1"></i>Обновить ленту
-                        </button>
+                <!-- 3. ЗАДАЧИ -->
+                <div id="adminsub-questions" class="hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
+                        <h4 class="font-bold text-slate-800 text-base mb-4">Опубликовать математическую задачу</h4>
+                        <form onsubmit="handleAddQuestion(event)" class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1">Условие задачи</label>
+                                <textarea id="new-q-text" required rows="2" class="w-full px-3 py-2 rounded-lg border text-sm"></textarea>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <input id="new-opt-a" type="text" required placeholder="Вариант А" class="px-3 py-2 rounded-lg border text-sm">
+                                <input id="new-opt-b" type="text" required placeholder="Вариант Б" class="px-3 py-2 rounded-lg border text-sm">
+                                <input id="new-opt-c" type="text" required placeholder="Вариант В" class="px-3 py-2 rounded-lg border text-sm">
+                                <input id="new-opt-d" type="text" required placeholder="Вариант Г" class="px-3 py-2 rounded-lg border text-sm">
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                                <select id="new-correct" class="px-3 py-2 rounded-lg border text-sm font-bold text-emerald-700 bg-emerald-50">
+                                    <option value="0">Правильный: А</option>
+                                    <option value="1">Правильный: Б</option>
+                                    <option value="2">Правильный: В</option>
+                                    <option value="3">Правильный: Г</option>
+                                </select>
+                                <input id="new-points" type="number" value="10" min="1" max="100" class="px-3 py-2 rounded-lg border text-sm font-bold" placeholder="Баллы">
+                                <input id="new-time" type="number" value="30" min="10" max="180" class="px-3 py-2 rounded-lg border text-sm" placeholder="Секунды">
+                            </div>
+                            <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow">Опубликовать</button>
+                        </form>
                     </div>
-                    <div class="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+                    <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
+                        <h4 class="font-bold text-slate-800 text-base mb-4">Активные задачи</h4>
+                        <div id="questions-list" class="space-y-2"></div>
+                    </div>
+                </div>
+
+                <!-- 4. ОТВЕТЫ -->
+                <div id="adminsub-submissions" class="hidden space-y-4">
+                    <div class="bg-white rounded-xl shadow border border-slate-200 overflow-x-auto">
                         <table class="w-full text-left text-xs">
                             <thead class="bg-slate-100 text-slate-600 uppercase font-bold border-b">
                                 <tr>
@@ -394,113 +397,31 @@
                     </div>
                 </div>
 
-                <!-- 3. ПОДВКЛАДКА: БАЗА УЧАСТНИКОВ -->
-                <div id="adminsub-students" class="hidden space-y-4">
-                    <div class="bg-white p-4 rounded-xl shadow border border-slate-200 flex justify-between items-center">
-                        <div>
-                            <h4 class="font-bold text-slate-800 text-sm">Зафиксированные участники</h4>
-                            <p class="text-xs text-slate-400">Ученики, привязанные к своим смартфонам</p>
-                        </div>
-                        <button onclick="loadRegisteredStudents()" class="text-xs text-blue-600 font-bold hover:underline">
-                            <i class="fa-solid fa-arrows-rotate mr-1"></i>Обновить список
-                        </button>
-                    </div>
-                    <div class="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-100 text-slate-600 uppercase font-bold border-b">
-                                <tr>
-                                    <th class="py-2.5 px-3">ФИО Ученика</th>
-                                    <th class="py-2.5 px-3">Класс</th>
-                                    <th class="py-2.5 px-3">Дата регистрации</th>
-                                    <th class="py-2.5 px-3 text-right">Статус устройства</th>
-                                </tr>
-                            </thead>
-                            <tbody id="students-body" class="divide-y divide-slate-100"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- 4. ПОДВКЛАДКА: УПРАВЛЕНИЕ КЛАССАМИ (СУПЕРАДМИН) -->
-                <div id="adminsub-classes" class="hidden space-y-6">
-                    <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <div class="flex justify-between items-center mb-4">
-                            <div>
-                                <h4 id="class-form-title" class="font-bold text-slate-800 text-base flex items-center">
-                                    <i class="fa-solid fa-plus-circle text-blue-600 mr-2"></i>Добавить класс в турнир
-                                </h4>
-                                <p class="text-xs text-slate-500">Управляйте списком параллелей и количеством учеников для честного рейтинга</p>
-                            </div>
-                            <button id="cancel-edit-btn" onclick="resetClassForm()" class="hidden px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg">
-                                Отменить редактирование
-                            </button>
-                        </div>
-
-                        <form id="class-action-form" onsubmit="handleSaveClass(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <input type="hidden" id="edit-class-id" value="">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 mb-1">Название класса</label>
-                                <input id="form-class-name" type="text" required placeholder="Например: 9-В или 4-А" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 mb-1">Количество учеников</label>
-                                <input id="form-class-count" type="number" required value="25" min="1" max="50" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold">
-                            </div>
-                            <div class="sm:flex sm:items-end">
-                                <button type="submit" id="form-class-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm shadow">
-                                    + Добавить класс
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <div class="flex justify-between items-center mb-4">
-                            <h4 class="font-bold text-slate-800 text-base">Текущие классы-участники</h4>
-                            <span class="text-xs text-slate-400" id="total-classes-badge">Загрузка...</span>
-                        </div>
-                        <div id="admin-classes-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3"></div>
-                    </div>
-                </div>
-
-                <!-- 5. ПОДВКЛАДКА: УЧИТЕЛЯ-АДМИНЫ -->
+                <!-- 5. УЧИТЕЛЯ -->
                 <div id="adminsub-users" class="hidden space-y-6">
                     <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <h4 class="font-bold text-slate-800 text-base mb-4 flex items-center">
-                            <i class="fa-solid fa-user-plus text-emerald-600 mr-2"></i>Добавить учителя в систему
-                        </h4>
+                        <h4 class="font-bold text-slate-800 text-base mb-4">Добавить учителя</h4>
                         <form onsubmit="handleAddTeacher(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 mb-1">ФИО Учителя</label>
-                                <input id="new-t-name" type="text" required placeholder="Ахмадов М.С." class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 mb-1">Логин</label>
-                                <input id="new-t-user" type="text" required placeholder="math_teacher2" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 mb-1">Пароль</label>
-                                <input id="new-t-pass" type="text" required placeholder="пароль..." class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
-                            </div>
-                            <div class="sm:col-span-3 pt-2">
-                                <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow">
-                                    Выдать доступ учителю
-                                </button>
+                            <input id="new-t-name" type="text" required placeholder="ФИО Учителя" class="px-3 py-2 rounded border text-sm">
+                            <input id="new-t-user" type="text" required placeholder="Логин" class="px-3 py-2 rounded border text-sm">
+                            <input id="new-t-pass" type="text" required placeholder="Пароль" class="px-3 py-2 rounded border text-sm">
+                            <div class="sm:col-span-3">
+                                <button type="submit" class="px-5 py-2 bg-emerald-600 text-white font-bold rounded text-sm">Создать доступ</button>
                             </div>
                         </form>
                     </div>
-
                     <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <h4 class="font-bold text-slate-800 text-base mb-4">Список всех администраторов</h4>
+                        <h4 class="font-bold text-slate-800 text-base mb-4">Список администраторов</h4>
                         <div id="teachers-list" class="space-y-2"></div>
                     </div>
                 </div>
+
             </div>
         </section>
-
     </main>
 
-    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-        МБОУ «Энгель-Юртовская СШ №2» • Неделя математики 2026 • Система «Битва Классов»
+    <footer class="bg-white border-t py-4 text-center text-xs text-slate-500">
+        МБОУ «Энгель-Юртовская СШ №2» • Неделя математики 2026
     </footer>
 
     <script>
@@ -512,6 +433,19 @@
         let timeLeft = 30;
         let currentUser = null;
         let currentEditingClassId = null;
+
+        // Определение модели телефона и браузера
+        function getDeviceModelName() {
+            const ua = navigator.userAgent;
+            let device = "Компьютер / ПК";
+            if (/android/i.test(ua)) {
+                const match = ua.match(/;\s([^;)]+)\sBuild/);
+                device = match ? match[1] : "Android-смартфон";
+            } else if (/iPad|iPhone|iPod/.test(ua)) {
+                device = "Apple iPhone / iOS";
+            }
+            return device;
+        }
 
         function getDeviceToken() {
             let token = localStorage.getItem('school_device_token');
@@ -537,7 +471,7 @@
                     const studentObj = JSON.parse(saved);
                     currentStudent = studentObj;
                     document.getElementById('saved-student-name').textContent = studentObj.student_name;
-                    document.getElementById('saved-student-class').textContent = 'Класс: ' + studentObj.class_name;
+                    document.getElementById('saved-student-class').textContent = 'Класс: ' + studentObj.class_name + ' | Логин: @' + studentObj.student_login;
                     document.getElementById('student-login-box').classList.add('hidden');
                     document.getElementById('saved-profile-box').classList.remove('hidden');
                 } catch(e) {}
@@ -555,7 +489,6 @@
                     btn.className = 'px-3 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all text-white hover:bg-white/10';
                 }
             });
-
             if (tabId === 'leaderboard') loadLeaderboard();
         }
 
@@ -571,7 +504,7 @@
                     opt.textContent = `${c.name} (${c.students_count} уч.)`;
                     sel.appendChild(opt);
                 });
-            } catch(e) { console.error(e); }
+            } catch(e) {}
         }
 
         function renderQrCode() {
@@ -595,57 +528,65 @@
                 const data = await res.json();
                 const tbody = document.getElementById('leaderboard-body');
                 tbody.innerHTML = '';
-
                 data.forEach((row, idx) => {
                     let rankBadge = `<span class="font-bold text-slate-500">${idx + 1}</span>`;
-                    if (idx === 0) rankBadge = '<span class="text-xl">🥇</span>';
-                    else if (idx === 1) rankBadge = '<span class="text-xl">🥈</span>';
-                    else if (idx === 2) rankBadge = '<span class="text-xl">🥉</span>';
+                    if (idx === 0) rankBadge = '🥇';
+                    else if (idx === 1) rankBadge = '🥈';
+                    else if (idx === 2) rankBadge = '🥉';
 
                     const tr = document.createElement('tr');
-                    tr.className = idx < 3 ? 'bg-amber-50/40 font-semibold' : 'hover:bg-slate-50';
+                    tr.className = idx < 3 ? 'bg-amber-50/50 font-bold' : 'hover:bg-slate-50';
                     tr.innerHTML = `
                         <td class="py-3 px-4">${rankBadge}</td>
                         <td class="py-3 px-4 font-bold text-slate-800">${row.class_name}</td>
                         <td class="py-3 px-4 text-center text-slate-600">${row.participants} / ${row.students_count}</td>
-                        <td class="py-3 px-4 text-center font-bold text-blue-600">${row.total_points}</td>
-                        <td class="py-3 px-4 text-right font-extrabold text-emerald-600 text-base">${row.avg_score}</td>
+                        <td class="py-3 px-4 text-center text-blue-600">${row.total_points}</td>
+                        <td class="py-3 px-4 text-right text-emerald-600 text-base">${row.avg_score}</td>
                     `;
                     tbody.appendChild(tr);
                 });
-            } catch(e) { console.error(e); }
+            } catch(e) {}
         }
 
-        async function handleStartQuiz(e) {
+        // Вход и регистрация ученика
+        async function handleStudentAuth(e) {
             e.preventDefault();
-            const errBox = document.getElementById('reg-error-msg');
+            const errBox = document.getElementById('auth-error-msg');
             errBox.classList.add('hidden');
 
             const cName = document.getElementById('student-class').value;
             const sName = document.getElementById('student-name').value.trim();
+            const sLogin = document.getElementById('student-login-inp').value.trim();
+            const sPass = document.getElementById('student-pass-inp').value.trim();
             const devToken = getDeviceToken();
-
-            if (!cName || !sName) return;
+            const devInfo = getDeviceModelName();
 
             try {
-                const checkRes = await fetch('/api/student/check-or-register', {
+                const res = await fetch('/api/student/auth', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         student_name: sName,
                         class_name: cName,
-                        device_token: devToken
+                        student_login: sLogin,
+                        student_password: sPass,
+                        device_token: devToken,
+                        device_info: devInfo
                     })
                 });
-                const checkData = await checkRes.json();
+                const data = await res.json();
 
-                if (!checkRes.ok) {
-                    errBox.textContent = checkData.error || 'Ошибка входа';
+                if (!res.ok) {
+                    errBox.textContent = data.error || 'Ошибка входа';
                     errBox.classList.remove('hidden');
                     return;
                 }
 
-                currentStudent = { class_name: checkData.class_name, student_name: checkData.student_name };
+                currentStudent = {
+                    class_name: data.class_name,
+                    student_name: data.student_name,
+                    student_login: data.student_login
+                };
                 localStorage.setItem('registered_math_student', JSON.stringify(currentStudent));
                 startQuizQuestions();
 
@@ -696,13 +637,10 @@
             document.getElementById('quiz-points').textContent = `+${q.points} баллов`;
             document.getElementById('quiz-author').textContent = `Автор: ${q.author_name || 'Учитель'}`;
             document.getElementById('quiz-question-text').textContent = q.question_text;
-            
-            const feedback = document.getElementById('quiz-feedback');
-            feedback.classList.add('hidden');
+            document.getElementById('quiz-feedback').classList.add('hidden');
 
             const optsBox = document.getElementById('quiz-options');
             optsBox.innerHTML = '';
-
             const opts = [q.opt_a, q.opt_b, q.opt_c, q.opt_d];
             opts.forEach((optText, idx) => {
                 const btn = document.createElement('button');
@@ -728,8 +666,7 @@
         async function submitAnswer(selectedIdx) {
             clearInterval(quizTimerInterval);
             const q = currentQuizQuestions[currentQIndex];
-            const optsBox = document.getElementById('quiz-options');
-            Array.from(optsBox.children).forEach(btn => btn.disabled = true);
+            Array.from(document.getElementById('quiz-options').children).forEach(b => b.disabled = true);
 
             try {
                 const res = await fetch('/api/quiz/submit', {
@@ -744,7 +681,6 @@
                     })
                 });
                 const ans = await res.json();
-
                 const feedback = document.getElementById('quiz-feedback');
                 feedback.classList.remove('hidden');
 
@@ -760,8 +696,7 @@
                     currentQIndex++;
                     showNextQuestion();
                 }, 1600);
-
-            } catch(e) { console.error(e); }
+            } catch(e) {}
         }
 
         function exitQuiz() {
@@ -771,6 +706,7 @@
             switchTab('leaderboard');
         }
 
+        // --- АДМИНКА ---
         async function checkAdminAuth() {
             try {
                 const res = await fetch('/api/admin/me');
@@ -784,50 +720,34 @@
 
         async function handleAdminLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('admin-user').value.trim();
-            const password = document.getElementById('admin-pass').value.trim();
+            const u = document.getElementById('admin-user').value.trim();
+            const p = document.getElementById('admin-pass').value.trim();
 
-            try {
-                const res = await fetch('/api/admin/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    currentUser = data.user;
-                    showAdminDashboard();
-                } else {
-                    alert(data.error || 'Ошибка входа');
-                }
-            } catch(err) { alert('Ошибка сети'); }
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ username: u, password: p })
+            });
+            const data = await res.json();
+            if (data.success) {
+                currentUser = data.user;
+                showAdminDashboard();
+            } else {
+                alert(data.error || 'Ошибка входа');
+            }
         }
 
         function showAdminDashboard() {
             document.getElementById('admin-login-box').classList.add('hidden');
             document.getElementById('admin-dashboard-box').classList.remove('hidden');
             document.getElementById('admin-name-display').textContent = currentUser.full_name;
-            document.getElementById('admin-avatar').textContent = currentUser.full_name[0];
 
-            const badge = document.getElementById('admin-role-badge');
-            if (currentUser.role === 'superadmin') {
-                badge.textContent = 'Главный Администратор (Суперадмин)';
-                badge.className = 'text-xs px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-800';
-                document.getElementById('subtab-users').classList.remove('hidden');
-                document.getElementById('subtab-classes').classList.remove('hidden');
-            } else {
-                badge.textContent = 'Учитель Математики';
-                badge.className = 'text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800';
-                document.getElementById('subtab-users').classList.add('hidden');
-                document.getElementById('subtab-classes').classList.add('hidden');
-            }
-
+            loadAdminClasses();
             loadAdminQuestions();
             loadSubmissions();
-            loadRegisteredStudents();
             if (currentUser.role === 'superadmin') {
+                loadRegisteredStudents();
                 loadTeachersList();
-                loadAdminClasses();
             }
         }
 
@@ -839,7 +759,7 @@
         }
 
         function switchAdminSubTab(sub) {
-            ['questions', 'submissions', 'students', 'classes', 'users'].forEach(s => {
+            ['students', 'classes', 'questions', 'submissions', 'users'].forEach(s => {
                 const sec = document.getElementById(`adminsub-${s}`);
                 const btn = document.getElementById(`subtab-${s}`);
                 if (sec) sec.classList.toggle('hidden', s !== sub);
@@ -853,63 +773,75 @@
             });
         }
 
-        // --- УПРАВЛЕНИЕ КЛАССАМИ (СУПЕРАДМИН) ---
+        // Загрузка зарегистрированных учеников с моделями телефонов и паролями
+        async function loadRegisteredStudents() {
+            try {
+                const res = await fetch('/api/admin/registered-students');
+                const list = await res.json();
+                const tbody = document.getElementById('students-body');
+                tbody.innerHTML = '';
+                list.forEach(s => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-50';
+                    tr.innerHTML = `
+                        <td class="py-3 px-3 font-bold text-slate-800">${s.student_name}</td>
+                        <td class="py-3 px-3 font-semibold text-blue-600">${s.class_name}</td>
+                        <td class="py-3 px-3 font-mono font-bold text-slate-700">@${s.student_login}</td>
+                        <td class="py-3 px-3 font-mono font-bold text-rose-600 bg-rose-50/50 px-2 py-0.5 rounded">${s.student_password}</td>
+                        <td class="py-3 px-3 font-medium text-slate-600"><i class="fa-solid fa-mobile mr-1 text-slate-400"></i>${s.device_info}</td>
+                        <td class="py-3 px-3 text-right text-slate-400 text-[11px]">${s.registered_at}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch(e) {}
+        }
+
+        // --- УПРАВЛЕНИЕ КЛАССАМИ ---
         async function loadAdminClasses() {
             try {
                 const res = await fetch('/api/classes');
                 const list = await res.json();
                 const box = document.getElementById('admin-classes-list');
-                const badge = document.getElementById('total-classes-badge');
-                if (badge) badge.textContent = `Всего: ${list.length} классов`;
                 box.innerHTML = '';
-
                 list.forEach(c => {
                     const div = document.createElement('div');
-                    div.className = 'p-3.5 rounded-xl border border-slate-200 bg-slate-50/80 flex justify-between items-center text-xs shadow-sm';
+                    div.className = 'p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center text-xs';
                     div.innerHTML = `
                         <div>
-                            <span class="font-extrabold text-slate-800 text-sm tracking-wide">${c.name}</span>
-                            <span class="text-slate-500 block text-[11px] font-medium">${c.students_count} учеников</span>
+                            <span class="font-extrabold text-slate-800 text-sm">${c.name}</span>
+                            <span class="text-slate-500 block">${c.students_count} учеников</span>
                         </div>
                         <div class="flex items-center space-x-1">
-                            <button onclick="startEditClass(${c.id}, '${c.name}', ${c.students_count})" class="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md font-bold transition" title="Редактировать">
+                            <button onclick="startEditClass(${c.id}, '${c.name}', ${c.students_count})" class="p-1.5 text-blue-600 hover:bg-blue-100 rounded font-bold" title="Изменить">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </button>
-                            <button onclick="deleteClass(${c.id}, '${c.name}')" class="p-1.5 text-rose-600 hover:bg-rose-100 rounded-md font-bold transition" title="Удалить">
+                            <button onclick="deleteClass(${c.id}, '${c.name}')" class="p-1.5 text-rose-600 hover:bg-rose-100 rounded font-bold" title="Удалить">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
                     `;
                     box.appendChild(div);
                 });
-            } catch(e) {
-                console.error("Ошибка загрузки классов:", e);
-            }
+            } catch(e) {}
         }
 
         function startEditClass(id, name, count) {
             currentEditingClassId = id;
-            document.getElementById('edit-class-id').value = id;
             document.getElementById('form-class-name').value = name;
             document.getElementById('form-class-count').value = count;
-
-            document.getElementById('class-form-title').innerHTML = '<i class="fa-solid fa-pen-to-square text-amber-500 mr-2"></i>Редактировать класс ' + name;
-            document.getElementById('form-class-btn').textContent = 'Сохранить изменения';
-            document.getElementById('form-class-btn').className = 'w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-sm shadow';
+            document.getElementById('class-form-title').innerHTML = '<i class="fa-solid fa-pen-to-square text-amber-500 mr-2"></i>Редактировать ' + name;
+            document.getElementById('form-class-btn').textContent = 'Сохранить';
+            document.getElementById('form-class-btn').className = 'w-full py-2.5 bg-amber-600 text-white font-bold rounded-lg text-sm';
             document.getElementById('cancel-edit-btn').classList.remove('hidden');
-
-            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function resetClassForm() {
             currentEditingClassId = null;
-            document.getElementById('edit-class-id').value = '';
             document.getElementById('form-class-name').value = '';
             document.getElementById('form-class-count').value = '25';
-
             document.getElementById('class-form-title').innerHTML = '<i class="fa-solid fa-plus-circle text-blue-600 mr-2"></i>Добавить класс в турнир';
             document.getElementById('form-class-btn').textContent = '+ Добавить класс';
-            document.getElementById('form-class-btn').className = 'w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm shadow';
+            document.getElementById('form-class-btn').className = 'w-full py-2.5 bg-blue-600 text-white font-bold rounded-lg text-sm';
             document.getElementById('cancel-edit-btn').classList.add('hidden');
         }
 
@@ -919,96 +851,54 @@
             const count = parseInt(document.getElementById('form-class-count').value, 10);
             const isEdit = Boolean(currentEditingClassId);
 
-            const endpoint = '/api/admin/classes';
             const method = isEdit ? 'PUT' : 'POST';
-            const payload = isEdit 
-                ? { id: currentEditingClassId, name: name, students_count: count }
-                : { name: name, students_count: count };
+            const payload = isEdit ? { id: currentEditingClassId, name: name, students_count: count } : { name: name, students_count: count };
 
-            try {
-                const res = await fetch(endpoint, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-
-                if (res.ok) {
-                    alert(data.message || (isEdit ? 'Класс обновлен!' : 'Класс добавлен!'));
-                    resetClassForm();
-                    loadAdminClasses();
-                    loadClasses();
-                    loadLeaderboard();
-                } else {
-                    alert(data.error || 'Ошибка при сохранении класса');
-                }
-            } catch(err) {
-                alert('Ошибка связи с сервером');
+            const res = await fetch('/api/admin/classes', {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert(isEdit ? 'Класс обновлен!' : 'Класс добавлен!');
+                resetClassForm();
+                loadAdminClasses();
+                loadClasses();
+                loadLeaderboard();
+            } else {
+                alert(data.error || 'Ошибка');
             }
         }
 
         async function deleteClass(id, name) {
-            if (!confirm(`Удалить класс «${name}» из турнира?`)) return;
-            try {
-                const res = await fetch(`/api/admin/classes?id=${id}`, { method: 'DELETE' });
-                const data = await res.json();
-                if (res.ok) {
-                    loadAdminClasses();
-                    loadClasses();
-                    loadLeaderboard();
-                } else {
-                    alert(data.error || 'Ошибка удаления');
-                }
-            } catch(err) {
-                alert('Ошибка связи с сервером');
+            if (!confirm(`Удалить класс «${name}»?`)) return;
+            const res = await fetch(`/api/admin/classes?id=${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                loadAdminClasses();
+                loadClasses();
+                loadLeaderboard();
             }
         }
 
-        // --- БАЗА ЗАРЕГИСТРИРОВАННЫХ УЧАСТНИКОВ ---
-        async function loadRegisteredStudents() {
-            try {
-                const res = await fetch('/api/admin/registered-students');
-                const list = await res.json();
-                const tbody = document.getElementById('students-body');
-                tbody.innerHTML = '';
-
-                list.forEach(s => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'hover:bg-slate-50';
-                    tr.innerHTML = `
-                        <td class="py-2 px-3 font-bold text-slate-800">${s.student_name}</td>
-                        <td class="py-2 px-3 font-semibold text-blue-600">${s.class_name}</td>
-                        <td class="py-2 px-3 text-slate-400">${s.registered_at}</td>
-                        <td class="py-2 px-3 text-right text-emerald-600 font-bold">Привязан к телефону ✓</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } catch(e) {}
-        }
-
-        // --- ВОПРОСЫ ---
+        // Вопросы и учителя
         async function loadAdminQuestions() {
-            try {
-                const res = await fetch('/api/admin/questions');
-                const list = await res.json();
-                const box = document.getElementById('questions-list');
-                box.innerHTML = '';
-
-                list.forEach(q => {
-                    const div = document.createElement('div');
-                    div.className = 'p-3 rounded-xl border border-slate-200 flex justify-between items-center text-xs';
-                    div.innerHTML = `
-                        <div>
-                            <p class="font-bold text-slate-800 text-sm">${q.question_text}</p>
-                            <span class="text-slate-400">Автор: ${q.author_name} • ${q.points} баллов • ${q.time_limit}с</span>
-                        </div>
-                        <button onclick="deleteQuestion(${q.id})" class="text-rose-600 hover:text-rose-800 px-2 py-1 font-bold">
-                            Удалить
-                        </button>
-                    `;
-                    box.appendChild(div);
-                });
-            } catch(e) {}
+            const res = await fetch('/api/admin/questions');
+            const list = await res.json();
+            const box = document.getElementById('questions-list');
+            box.innerHTML = '';
+            list.forEach(q => {
+                const div = document.createElement('div');
+                div.className = 'p-3 rounded-xl border flex justify-between items-center text-xs';
+                div.innerHTML = `
+                    <div>
+                        <p class="font-bold text-slate-800 text-sm">${q.question_text}</p>
+                        <span class="text-slate-400">${q.author_name} • ${q.points} баллов</span>
+                    </div>
+                    <button onclick="deleteQuestion(${q.id})" class="text-rose-600 font-bold">Удалить</button>
+                `;
+                box.appendChild(div);
+            });
         }
 
         async function handleAddQuestion(e) {
@@ -1023,96 +913,79 @@
                 points: document.getElementById('new-points').value,
                 time_limit: document.getElementById('new-time').value
             };
-
             const res = await fetch('/api/admin/questions', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
             if (res.ok) {
-                alert('Задача успешно опубликована!');
+                alert('Задача добавлена!');
                 document.getElementById('new-q-text').value = '';
                 loadAdminQuestions();
             }
         }
 
         async function deleteQuestion(id) {
-            if (!confirm('Удалить этот вопрос?')) return;
+            if (!confirm('Удалить вопрос?')) return;
             await fetch(`/api/admin/questions?id=${id}`, { method: 'DELETE' });
             loadAdminQuestions();
         }
 
-        // --- ЖУРНАЛ ОТВЕТОВ ---
         async function loadSubmissions() {
-            try {
-                const res = await fetch('/api/admin/submissions');
-                const list = await res.json();
-                const tbody = document.getElementById('submissions-body');
-                tbody.innerHTML = '';
-
-                list.forEach(s => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'hover:bg-slate-50';
-                    tr.innerHTML = `
-                        <td class="py-2 px-3 text-slate-400">${s.submitted_at.slice(11)}</td>
-                        <td class="py-2 px-3 font-bold text-slate-800">${s.student_name}</td>
-                        <td class="py-2 px-3 font-semibold text-blue-600">${s.class_name}</td>
-                        <td class="py-2 px-3 text-slate-600 max-w-xs truncate">${s.question_text}</td>
-                        <td class="py-2 px-3 text-center">${s.is_correct ? '<span class="text-emerald-600 font-bold">✓ Верно</span>' : '<span class="text-rose-500 font-bold">✕ Неверно</span>'}</td>
-                        <td class="py-2 px-3 text-right font-bold">${s.points_earned}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } catch(e) {}
+            const res = await fetch('/api/admin/submissions');
+            const list = await res.json();
+            const tbody = document.getElementById('submissions-body');
+            tbody.innerHTML = '';
+            list.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-2 px-3 text-slate-400">${s.submitted_at.slice(11)}</td>
+                    <td class="py-2 px-3 font-bold">${s.student_name}</td>
+                    <td class="py-2 px-3 text-blue-600">${s.class_name}</td>
+                    <td class="py-2 px-3 truncate max-w-xs">${s.question_text}</td>
+                    <td class="py-2 px-3 text-center">${s.is_correct ? '<span class="text-emerald-600 font-bold">✓</span>' : '<span class="text-rose-500 font-bold">✕</span>'}</td>
+                    <td class="py-2 px-3 text-right font-bold">${s.points_earned}</td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
 
-        // --- УЧИТЕЛЯ ---
         async function loadTeachersList() {
-            try {
-                const res = await fetch('/api/admin/users');
-                const list = await res.json();
-                const box = document.getElementById('teachers-list');
-                box.innerHTML = '';
-                list.forEach(u => {
-                    const div = document.createElement('div');
-                    div.className = 'flex justify-between items-center p-2 rounded-lg bg-slate-50 border text-xs';
-                    div.innerHTML = `
-                        <div>
-                            <span class="font-bold text-slate-800">${u.full_name}</span> 
-                            <span class="text-slate-400">(@${u.username})</span> — 
-                            <span class="font-semibold text-blue-600">${u.role === 'superadmin' ? 'Суперадмин' : 'Учитель'}</span>
-                        </div>
-                        ${u.role !== 'superadmin' ? `<button onclick="deleteTeacher(${u.id})" class="text-rose-600 font-bold hover:underline">Удалить</button>` : '<span class="text-slate-400">Владелец</span>'}
-                    `;
-                    box.appendChild(div);
-                });
-            } catch(e) {}
+            const res = await fetch('/api/admin/users');
+            const list = await res.json();
+            const box = document.getElementById('teachers-list');
+            box.innerHTML = '';
+            list.forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-2 rounded bg-slate-50 border text-xs';
+                div.innerHTML = `
+                    <div><span class="font-bold">${u.full_name}</span> (@${u.username})</div>
+                    ${u.role !== 'superadmin' ? `<button onclick="deleteTeacher(${u.id})" class="text-rose-600 font-bold">Удалить</button>` : '<span class="text-slate-400">Владелец</span>'}
+                `;
+                box.appendChild(div);
+            });
         }
 
         async function handleAddTeacher(e) {
             e.preventDefault();
-            const payload = {
-                full_name: document.getElementById('new-t-name').value,
-                username: document.getElementById('new-t-user').value,
-                password: document.getElementById('new-t-pass').value,
-                role: 'teacher'
-            };
             const res = await fetch('/api/admin/users', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    full_name: document.getElementById('new-t-name').value,
+                    username: document.getElementById('new-t-user').value,
+                    password: document.getElementById('new-t-pass').value,
+                    role: 'teacher'
+                })
             });
-            const data = await res.json();
             if (res.ok) {
                 alert('Учитель добавлен!');
                 loadTeachersList();
-            } else {
-                alert(data.error || 'Ошибка');
             }
         }
 
         async function deleteTeacher(id) {
-            if (!confirm('Отозвать доступ у учителя?')) return;
+            if (!confirm('Отозвать доступ?')) return;
             await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' });
             loadTeachersList();
         }
