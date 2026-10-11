@@ -148,12 +148,59 @@ def index():
     return render_template('index.html')
 
 @app.route('/api/classes')
-def get_classes():
+# --- Полное управление классами: Добавление, Редактирование, Удаление ---
+@app.route('/api/admin/classes', methods=['POST', 'PUT', 'DELETE'])
+@login_required
+@superadmin_required
+def admin_manage_classes():
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, students_count FROM classes ORDER BY name ASC")
-        rows = [dict(r) for r in cursor.fetchall()]
-    return jsonify(rows)
+        
+        # 1. Добавление нового класса
+        if request.method == 'POST':
+            d = request.json or {}
+            c_name = d.get('name', '').strip()
+            count = int(d.get('students_count', 25))
+            if not c_name:
+                return jsonify({"error": "Укажите название класса"}), 400
+            try:
+                cursor.execute("INSERT INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
+                conn.commit()
+                return jsonify({"success": True, "message": "Класс успешно добавлен"})
+            except sqlite3.IntegrityError:
+                return jsonify({"error": "Класс с таким названием уже существует"}), 400
+
+        # 2. Редактирование существующего класса (название и число учеников)
+        elif request.method == 'PUT':
+            d = request.json or {}
+            c_id = d.get('id')
+            c_name = d.get('name', '').strip()
+            count = int(d.get('students_count', 25))
+            if not c_id or not c_name:
+                return jsonify({"error": "Некорректные данные для редактирования"}), 400
+            try:
+                # Получаем старое имя класса, чтобы обновить записи в ответах
+                cursor.execute("SELECT name FROM classes WHERE id = ?", (c_id,))
+                old_row = cursor.fetchone()
+                if old_row:
+                    old_name = old_row['name']
+                    cursor.execute("UPDATE registered_students SET class_name = ? WHERE class_name = ?", (c_name, old_name))
+                    cursor.execute("UPDATE submissions SET class_name = ? WHERE class_name = ?", (c_name, old_name))
+
+                cursor.execute("UPDATE classes SET name = ?, students_count = ? WHERE id = ?", (c_name, count, c_id))
+                conn.commit()
+                return jsonify({"success": True, "message": "Данные класса обновлены"})
+            except sqlite3.IntegrityError:
+                return jsonify({"error": "Класс с таким названием уже существует"}), 400
+
+        # 3. Удаление класса
+        elif request.method == 'DELETE':
+            c_id = request.args.get('id')
+            if not c_id:
+                return jsonify({"error": "Не передан ID класса"}), 400
+            cursor.execute("DELETE FROM classes WHERE id = ?", (c_id,))
+            conn.commit()
+            return jsonify({"success": True, "message": "Класс удален"})
 
 @app.route('/api/leaderboard')
 def get_leaderboard():
