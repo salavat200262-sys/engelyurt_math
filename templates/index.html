@@ -15,7 +15,7 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
-    <!-- ШАПКА САЙТА -->
+    <!-- НАВИГАЦИЯ -->
     <header class="gradient-math text-white shadow-lg sticky top-0 z-50">
         <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
             <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('arena')">
@@ -75,22 +75,29 @@
                 </div>
             </div>
 
-            <!-- Регистрация нового ученика с логином и паролем -->
+            <!-- Регистрация нового ученика с номером телефона, логином и паролем -->
             <div id="student-login-box" class="max-w-lg mx-auto bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-100">
                 <div class="text-center space-y-2 mb-6">
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                         ⚡ Вход и Регистрация Участника
                     </span>
                     <h2 class="text-2xl font-bold text-slate-800">Битва Классов Онлайн</h2>
-                    <p class="text-xs text-slate-500">Придумай логин и пароль. Они запомнятся на твоем телефоне на всю неделю!</p>
+                    <p class="text-xs text-slate-500">Заполните данные для участия в турнире. Они останутся на вашем телефоне!</p>
                 </div>
 
                 <form onsubmit="handleStudentAuth(event)" class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Класс</label>
-                        <select id="student-class" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 text-sm font-semibold">
-                            <option value="">-- Выберите класс --</option>
-                        </select>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Класс</label>
+                            <select id="student-class" required class="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 text-sm font-semibold">
+                                <option value="">-- Выберите класс --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Номер телефона</label>
+                            <input id="student-phone" type="tel" required placeholder="+7 999 123-45-67" 
+                                   class="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 text-sm font-semibold">
+                        </div>
                     </div>
 
                     <div>
@@ -121,7 +128,7 @@
                 </form>
 
                 <p class="text-[11px] text-slate-400 text-center mt-4">
-                    🛡️ Модель смартфона и браузер фиксируются в протоколе турнира.
+                    🛡️ Модель смартфона и номер телефона фиксируются в протоколе турнира.
                 </p>
             </div>
 
@@ -212,7 +219,7 @@
                     <p class="text-xs font-mono text-slate-500 mt-3 font-bold" id="qr-url-text"></p>
                 </div>
 
-                <p class="text-sm font-bold text-slate-800">📸 Наведи камеру телефона, введи логин и борись за кубок!</p>
+                <p class="text-sm font-bold text-slate-800">📸 Наведи камеру телефона, введи номер и борись за кубок!</p>
             </div>
 
             <div class="flex justify-center">
@@ -230,7 +237,8 @@
                     <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center text-xl mx-auto">
                         <i class="fa-solid fa-lock"></i>
                     </div>
-                    <h2 class="text-xl font-bold text-slate-800">Панель Учителей</h2>
+                    <h2 class="text-xl font-bold text-slate-800">Вход для Администраторов</h2>
+                    <p class="text-xs text-slate-500">Введите персональные данные для доступа</p>
                 </div>
 
                 <form onsubmit="handleAdminLogin(event)" class="space-y-4">
@@ -246,11 +254,6 @@
                         Войти в систему
                     </button>
                 </form>
-
-                <div class="mt-6 p-3 bg-slate-50 rounded-xl border text-xs text-slate-600">
-                    <p class="font-bold">Главный админ (Вы):</p>
-                    <p><code class="bg-white px-1">superadmin</code> / <code class="bg-white px-1">math2026</code></p>
-                </div>
             </div>
 
             <!-- Главный дашборд админа -->
@@ -265,7 +268,7 @@
 
                 <div class="flex border-b border-slate-200 space-x-4 overflow-x-auto">
                     <button onclick="switchAdminSubTab('students')" id="subtab-students" class="pb-3 border-b-2 border-blue-600 font-bold text-blue-600 text-sm whitespace-nowrap">
-                        <i class="fa-solid fa-mobile-screen-button mr-1.5"></i>Ученики, Телефоны и Пароли
+                        <i class="fa-solid fa-mobile-screen-button mr-1.5"></i>База Учеников (Телефоны, Пароли)
                     </button>
                     <button onclick="switchAdminSubTab('classes')" id="subtab-classes" class="pb-3 border-b-2 border-transparent text-slate-500 font-bold hover:text-slate-800 text-sm whitespace-nowrap">
                         <i class="fa-solid fa-school mr-1.5"></i>Управление Классами
@@ -281,12 +284,12 @@
                     </button>
                 </div>
 
-                <!-- 1. ТАБЛИЦА: УЧЕНИКИ, МОДЕЛИ ТЕЛЕФОНОВ, ЛОГИНЫ И ПАРОЛИ -->
+                <!-- 1. ТАБЛИЦА: УЧЕНИКИ, НОМЕРА ТЕЛЕФОНОВ, МОДЕЛИ, ЛОГИНЫ И ПАРОЛИ -->
                 <div id="adminsub-students" class="space-y-4">
                     <div class="bg-white p-4 rounded-xl shadow border border-slate-200 flex justify-between items-center">
                         <div>
-                            <h4 class="font-bold text-slate-800 text-sm">Протокол регистрации устройств</h4>
-                            <p class="text-xs text-slate-400">Полные данные: ФИО, класс, логин, пароль и модель телефона</p>
+                            <h4 class="font-bold text-slate-800 text-sm">Протокол участников турнира</h4>
+                            <p class="text-xs text-slate-400">Полные данные: ФИО, класс, телефон, логин, пароль и модель устройства</p>
                         </div>
                         <button onclick="loadRegisteredStudents()" class="text-xs text-blue-600 font-bold hover:underline">
                             <i class="fa-solid fa-arrows-rotate mr-1"></i>Обновить список
@@ -298,8 +301,9 @@
                                 <tr>
                                     <th class="py-3 px-3">ФИО Ученика</th>
                                     <th class="py-3 px-3">Класс</th>
+                                    <th class="py-3 px-3">Номер телефона</th>
                                     <th class="py-3 px-3">Логин</th>
-                                    <th class="py-3 px-3">Введённый Пароль</th>
+                                    <th class="py-3 px-3">Пароль</th>
                                     <th class="py-3 px-3">Устройство / Телефон</th>
                                     <th class="py-3 px-3 text-right">Дата регистрации</th>
                                 </tr>
@@ -347,7 +351,7 @@
                 <!-- 3. ЗАДАЧИ -->
                 <div id="adminsub-questions" class="hidden space-y-6">
                     <div class="bg-white p-6 rounded-2xl shadow border border-slate-200">
-                        <h4 class="font-bold text-slate-800 text-base mb-4">Опубликовать математическую задачу</h4>
+                        <h4 class="font-bold text-slate-800 text-base mb-4">Опубликовать задачу</h4>
                         <form onsubmit="handleAddQuestion(event)" class="space-y-3">
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 mb-1">Условие задачи</label>
@@ -434,7 +438,6 @@
         let currentUser = null;
         let currentEditingClassId = null;
 
-        // Определение модели телефона и браузера
         function getDeviceModelName() {
             const ua = navigator.userAgent;
             let device = "Компьютер / ПК";
@@ -471,7 +474,7 @@
                     const studentObj = JSON.parse(saved);
                     currentStudent = studentObj;
                     document.getElementById('saved-student-name').textContent = studentObj.student_name;
-                    document.getElementById('saved-student-class').textContent = 'Класс: ' + studentObj.class_name + ' | Логин: @' + studentObj.student_login;
+                    document.getElementById('saved-student-class').textContent = 'Класс: ' + studentObj.class_name + ' | Тел: ' + (studentObj.phone_number || '');
                     document.getElementById('student-login-box').classList.add('hidden');
                     document.getElementById('saved-profile-box').classList.remove('hidden');
                 } catch(e) {}
@@ -548,13 +551,14 @@
             } catch(e) {}
         }
 
-        // Вход и регистрация ученика
+        // Авторизация и регистрация с номером телефона
         async function handleStudentAuth(e) {
             e.preventDefault();
             const errBox = document.getElementById('auth-error-msg');
             errBox.classList.add('hidden');
 
             const cName = document.getElementById('student-class').value;
+            const phone = document.getElementById('student-phone').value.trim();
             const sName = document.getElementById('student-name').value.trim();
             const sLogin = document.getElementById('student-login-inp').value.trim();
             const sPass = document.getElementById('student-pass-inp').value.trim();
@@ -568,6 +572,7 @@
                     body: JSON.stringify({
                         student_name: sName,
                         class_name: cName,
+                        phone_number: phone,
                         student_login: sLogin,
                         student_password: sPass,
                         device_token: devToken,
@@ -585,6 +590,7 @@
                 currentStudent = {
                     class_name: data.class_name,
                     student_name: data.student_name,
+                    phone_number: data.phone_number,
                     student_login: data.student_login
                 };
                 localStorage.setItem('registered_math_student', JSON.stringify(currentStudent));
@@ -773,7 +779,7 @@
             });
         }
 
-        // Загрузка зарегистрированных учеников с моделями телефонов и паролями
+        // Загрузка зарегистрированных учеников с номерами телефонов, паролями и устройствами
         async function loadRegisteredStudents() {
             try {
                 const res = await fetch('/api/admin/registered-students');
@@ -786,6 +792,7 @@
                     tr.innerHTML = `
                         <td class="py-3 px-3 font-bold text-slate-800">${s.student_name}</td>
                         <td class="py-3 px-3 font-semibold text-blue-600">${s.class_name}</td>
+                        <td class="py-3 px-3 font-semibold text-emerald-700">${s.phone_number}</td>
                         <td class="py-3 px-3 font-mono font-bold text-slate-700">@${s.student_login}</td>
                         <td class="py-3 px-3 font-mono font-bold text-rose-600 bg-rose-50/50 px-2 py-0.5 rounded">${s.student_password}</td>
                         <td class="py-3 px-3 font-medium text-slate-600"><i class="fa-solid fa-mobile mr-1 text-slate-400"></i>${s.device_info}</td>
