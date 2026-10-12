@@ -29,12 +29,13 @@ def init_db():
             )
         ''')
 
-        # 2. Таблица учеников: с логином, паролем и моделью телефона
+        # 2. Таблица учеников: с номером телефона, логином, паролем и моделью устройства
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS registered_students (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 student_name TEXT UNIQUE NOT NULL,
                 class_name TEXT NOT NULL,
+                phone_number TEXT NOT NULL,
                 student_login TEXT UNIQUE NOT NULL,
                 student_password TEXT NOT NULL,
                 device_info TEXT NOT NULL,
@@ -101,7 +102,7 @@ def init_db():
         for c_name, count in default_classes:
             cursor.execute("INSERT OR IGNORE INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
 
-        # Создание суперадмина
+        # Создание суперадмина (логин: superadmin / пароль: math2026)
         cursor.execute("SELECT id FROM users WHERE role = 'superadmin'")
         if not cursor.fetchone():
             default_super_pass = generate_password_hash("math2026")
@@ -110,7 +111,7 @@ def init_db():
                 VALUES (?, ?, ?, ?)
             ''', ("superadmin", default_super_pass, "Главный Администратор", "superadmin"))
 
-        # Создание учителя для проверки
+        # Создание демо-учителя
         cursor.execute("SELECT id FROM users WHERE username = 'teacher1'")
         if not cursor.fetchone():
             default_teacher_pass = generate_password_hash("teacher123")
@@ -125,7 +126,7 @@ def init_db():
             sample_questions = [
                 (1, "Главный Администратор", "Чему равна сумма углов любого треугольника?", "90°", "180°", "360°", "270°", 1, 10, 25),
                 (1, "Главный Администратор", "Какое число является наименьшим простым числом?", "0", "1", "2", "3", 2, 10, 20),
-                (2, "Учитель Математики", "Вычислите: 2 + 2 × 2", "8", "6", "4", "10", 1, 10, 15),
+                (2, "Учитель Математики", "Вычислите значение выражения: 2 + 2 × 2", "8", "6", "4", "10", 1, 10, 15),
                 (2, "Учитель Математики", "Квадратный корень из 144 равен...", "11", "12", "14", "16", 1, 10, 20),
                 (2, "Учитель Математики", "Сколько граней у стандартного куба?", "4", "6", "8", "12", 1, 10, 20)
             ]
@@ -156,7 +157,7 @@ def superadmin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- ОСНОВНЫЕ РОУТЫ ---
+# --- РОУТЫ СТРАНИЦЫ И УЧЕНИКОВ ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -210,13 +211,14 @@ def student_auth():
     data = request.json or {}
     s_name = " ".join(data.get('student_name', '').strip().split())
     c_name = data.get('class_name', '').strip()
+    phone = data.get('phone_number', '').strip()
     s_login = data.get('student_login', '').strip().lower()
     s_password = data.get('student_password', '').strip()
     device_token = data.get('device_token', '').strip()
     device_info = data.get('device_info', '').strip() or request.headers.get('User-Agent', 'Неизвестное устройство')[:120]
 
-    if not s_name or not c_name or not s_login or not s_password:
-        return jsonify({"error": "Заполните все поля: ФИО, класс, логин и пароль"}), 400
+    if not s_name or not c_name or not phone or not s_login or not s_password:
+        return jsonify({"error": "Заполните все поля: ФИО, класс, телефон, логин и пароль!"}), 400
 
     parts = s_name.split()
     if len(parts) < 2:
@@ -225,12 +227,11 @@ def student_auth():
     with get_db() as conn:
         cursor = conn.cursor()
 
-        # 1. Проверяем, существует ли уже такой логин
+        # 1. Проверяем, существует ли логин
         cursor.execute("SELECT * FROM registered_students WHERE student_login = ?", (s_login,))
         user_by_login = cursor.fetchone()
 
         if user_by_login:
-            # Если логин существует — это повторный вход, сверяем пароль и ФИО
             if user_by_login['student_password'] != s_password:
                 return jsonify({"error": "Неверный пароль для логина «" + s_login + "»!"}), 403
             
@@ -241,10 +242,11 @@ def student_auth():
                 "success": True,
                 "student_name": user_by_login['student_name'],
                 "class_name": user_by_login['class_name'],
+                "phone_number": user_by_login['phone_number'],
                 "student_login": user_by_login['student_login']
             })
 
-        # 2. Проверяем, не регистрировался ли ученик с такими ФИО под другим логином
+        # 2. Проверяем, не регистрировался ли ученик с такими ФИО
         cursor.execute("SELECT * FROM registered_students WHERE LOWER(student_name) = LOWER(?)", (s_name,))
         user_by_name = cursor.fetchone()
         if user_by_name:
@@ -252,7 +254,15 @@ def student_auth():
                 "error": "Ученик «" + s_name + "» уже зарегистрирован с логином «" + user_by_name['student_login'] + "». Используйте свой логин!"
             }), 403
 
-        # 3. Проверяем телефон: с одного телефона нельзя создавать второй аккаунт
+        # 3. Проверяем номер телефона
+        cursor.execute("SELECT * FROM registered_students WHERE phone_number = ?", (phone,))
+        user_by_phone = cursor.fetchone()
+        if user_by_phone:
+            return jsonify({
+                "error": "Номер телефона «" + phone + "» уже привязан к ученику «" + user_by_phone['student_name'] + "»!"
+            }), 403
+
+        # 4. Проверяем телефон (мультиаккаунты)
         if device_token:
             cursor.execute("SELECT * FROM registered_students WHERE device_token = ?", (device_token,))
             device_owner = cursor.fetchone()
@@ -261,18 +271,19 @@ def student_auth():
                     "error": "С этого телефона уже играет «" + device_owner['student_name'] + "» (" + device_owner['class_name'] + "). Создание второго аккаунта запрещено!"
                 }), 403
 
-        # 4. Регистрируем нового ученика со всеми данными
+        # 5. Сохраняем в постоянную базу данных
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute('''
-            INSERT INTO registered_students (student_name, class_name, student_login, student_password, device_info, device_token, registered_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (s_name, c_name, s_login, s_password, device_info, device_token, now_str))
+            INSERT INTO registered_students (student_name, class_name, phone_number, student_login, student_password, device_info, device_token, registered_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (s_name, c_name, phone, s_login, s_password, device_info, device_token, now_str))
         conn.commit()
 
         return jsonify({
             "success": True,
             "student_name": s_name,
             "class_name": c_name,
+            "phone_number": phone,
             "student_login": s_login
         })
 
@@ -386,7 +397,7 @@ def admin_me():
         }
     })
 
-# Полное управление классами (Добавить, Изменить, Удалить)
+# Полное управление классами
 @app.route('/api/admin/classes', methods=['POST', 'PUT', 'DELETE'])
 @login_required
 @superadmin_required
@@ -486,14 +497,18 @@ def admin_submissions():
         ''')
         return jsonify([dict(r) for r in cursor.fetchall()])
 
-# Выгрузка всех учеников с паролями, логинами и моделями телефонов (Только Суперадмин)
+# Выгрузка всех учеников: Телефон, Логин, Пароль, Модель устройства (Только Суперадмин)
 @app.route('/api/admin/registered-students')
 @login_required
 @superadmin_required
 def admin_registered_students():
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, student_name, class_name, student_login, student_password, device_info, registered_at FROM registered_students ORDER BY id DESC")
+        cursor.execute('''
+            SELECT id, student_name, class_name, phone_number, student_login, student_password, device_info, registered_at 
+            FROM registered_students 
+            ORDER BY id DESC
+        ''')
         return jsonify([dict(r) for r in cursor.fetchall()])
 
 @app.route('/api/admin/users', methods=['GET', 'POST', 'DELETE'])
