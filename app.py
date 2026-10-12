@@ -8,7 +8,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'engelyurt-school2-math-secret-key-2026')
-DATABASE = 'math_battle.db'
+
+# Если подключен постоянный диск на Render — пишем туда, иначе локально
+DATABASE = '/var/data/math_battle.db' if os.path.exists('/var/data') else 'math_battle.db'
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -19,7 +21,7 @@ def init_db():
     with get_db() as conn:
         cursor = conn.cursor()
         
-        # 1. Таблица классов
+        # Классы
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS classes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,7 +31,7 @@ def init_db():
             )
         ''')
 
-        # 2. Таблица учеников: с номером телефона, логином, паролем и моделью устройства
+        # Зарегистрированные ученики
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS registered_students (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +46,7 @@ def init_db():
             )
         ''')
 
-        # 3. Таблица учителей и суперадмина
+        # Администраторы (Суперадмин и созданные им учителя)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +57,7 @@ def init_db():
             )
         ''')
 
-        # 4. Таблица вопросов
+        # Вопросы
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS questions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,7 +76,7 @@ def init_db():
             )
         ''')
 
-        # 5. Таблица ответов
+        # Ответы
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS submissions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,7 +92,7 @@ def init_db():
             )
         ''')
 
-        # Начальные классы
+        # Классы по умолчанию
         default_classes = [
             ("5-А", 24), ("5-Б", 23),
             ("6-А", 25), ("6-Б", 22),
@@ -102,33 +104,27 @@ def init_db():
         for c_name, count in default_classes:
             cursor.execute("INSERT OR IGNORE INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
 
-        # Создание суперадмина (логин: superadmin / пароль: math2026)
+        # Создание или обновление пароля Суперадмина (superadmin / math2026)
         cursor.execute("SELECT id FROM users WHERE role = 'superadmin'")
-        if not cursor.fetchone():
-            default_super_pass = generate_password_hash("math2026")
+        super_user = cursor.fetchone()
+        hashed_pass = generate_password_hash("math2026")
+        if not super_user:
             cursor.execute('''
                 INSERT INTO users (username, password_hash, full_name, role)
                 VALUES (?, ?, ?, ?)
-            ''', ("superadmin", default_super_pass, "Главный Администратор", "superadmin"))
+            ''', ("superadmin", hashed_pass, "Главный Администратор", "superadmin"))
+        else:
+            cursor.execute("UPDATE users SET password_hash = ? WHERE username = 'superadmin'", (hashed_pass,))
 
-        # Создание демо-учителя
-        cursor.execute("SELECT id FROM users WHERE username = 'teacher1'")
-        if not cursor.fetchone():
-            default_teacher_pass = generate_password_hash("teacher123")
-            cursor.execute('''
-                INSERT INTO users (username, password_hash, full_name, role)
-                VALUES (?, ?, ?, ?)
-            ''', ("teacher1", default_teacher_pass, "Учитель Математики", "teacher"))
-
-        # Начальные задачи
+        # Начальные вопросы
         cursor.execute("SELECT COUNT(*) FROM questions")
         if cursor.fetchone()[0] == 0:
             sample_questions = [
                 (1, "Главный Администратор", "Чему равна сумма углов любого треугольника?", "90°", "180°", "360°", "270°", 1, 10, 25),
                 (1, "Главный Администратор", "Какое число является наименьшим простым числом?", "0", "1", "2", "3", 2, 10, 20),
-                (2, "Учитель Математики", "Вычислите значение выражения: 2 + 2 × 2", "8", "6", "4", "10", 1, 10, 15),
-                (2, "Учитель Математики", "Квадратный корень из 144 равен...", "11", "12", "14", "16", 1, 10, 20),
-                (2, "Учитель Математики", "Сколько граней у стандартного куба?", "4", "6", "8", "12", 1, 10, 20)
+                (1, "Главный Администратор", "Вычислите: 2 + 2 × 2", "8", "6", "4", "10", 1, 10, 15),
+                (1, "Главный Администратор", "Квадратный корень из 144 равен...", "11", "12", "14", "16", 1, 10, 20),
+                (1, "Главный Администратор", "Сколько граней у стандартного куба?", "4", "6", "8", "12", 1, 10, 20)
             ]
             for q in sample_questions:
                 cursor.execute('''
@@ -157,7 +153,7 @@ def superadmin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- РОУТЫ СТРАНИЦЫ И УЧЕНИКОВ ---
+# --- РОУТЫ ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -205,9 +201,38 @@ def get_leaderboard():
         result.sort(key=lambda x: x['avg_score'], reverse=True)
     return jsonify(result)
 
-# Регистрация / Авторизация ученика с записью телефона, логина и пароля
-@app.route('/api/student/auth', methods=['POST'])
-def student_auth():
+# ВХОД УЧЕНИКА В СВОЙ АККАУНТ (по логину и паролю)
+@app.route('/api/student/login', methods=['POST'])
+def student_login():
+    data = request.json or {}
+    s_login = data.get('login', '').strip().lower()
+    s_password = data.get('password', '').strip()
+
+    if not s_login or not s_password:
+        return jsonify({"error": "Введите логин и пароль"}), 400
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM registered_students WHERE LOWER(student_login) = LOWER(?)", (s_login,))
+        user = cursor.fetchone()
+
+        if not user:
+            return jsonify({"error": "Ученик с таким логином не найден. Зарегистрируйтесь!"}), 404
+
+        if user['student_password'].strip() != s_password:
+            return jsonify({"error": "Неверный пароль!"}), 403
+
+        return jsonify({
+            "success": True,
+            "student_name": user['student_name'],
+            "class_name": user['class_name'],
+            "phone_number": user['phone_number'],
+            "student_login": user['student_login']
+        })
+
+# РЕГИСТРАЦИЯ НОВОГО УЧЕНИКА
+@app.route('/api/student/register', methods=['POST'])
+def student_register():
     data = request.json or {}
     s_name = " ".join(data.get('student_name', '').strip().split())
     c_name = data.get('class_name', '').strip()
@@ -215,63 +240,39 @@ def student_auth():
     s_login = data.get('student_login', '').strip().lower()
     s_password = data.get('student_password', '').strip()
     device_token = data.get('device_token', '').strip()
-    device_info = data.get('device_info', '').strip() or request.headers.get('User-Agent', 'Неизвестное устройство')[:120]
+    device_info = data.get('device_info', '').strip() or request.headers.get('User-Agent', 'Смартфон')[:120]
 
     if not s_name or not c_name or not phone or not s_login or not s_password:
-        return jsonify({"error": "Заполните все поля: ФИО, класс, телефон, логин и пароль!"}), 400
+        return jsonify({"error": "Заполните все поля регистрации!"}), 400
 
-    parts = s_name.split()
-    if len(parts) < 2:
-        return jsonify({"error": "Введите полные Фамилию и Имя!"}), 400
+    if len(s_name.split()) < 2:
+        return jsonify({"error": "Введите и Фамилию, и Имя!"}), 400
 
     with get_db() as conn:
         cursor = conn.cursor()
 
-        # 1. Проверяем, существует ли логин
-        cursor.execute("SELECT * FROM registered_students WHERE student_login = ?", (s_login,))
-        user_by_login = cursor.fetchone()
+        # Проверка логина
+        cursor.execute("SELECT id FROM registered_students WHERE LOWER(student_login) = LOWER(?)", (s_login,))
+        if cursor.fetchone():
+            return jsonify({"error": "Этот логин уже занят другим учеником. Придумайте другой!"}), 400
 
-        if user_by_login:
-            if user_by_login['student_password'] != s_password:
-                return jsonify({"error": "Неверный пароль для логина «" + s_login + "»!"}), 403
-            
-            if user_by_login['student_name'].lower() != s_name.lower():
-                return jsonify({"error": "Этот логин принадлежит другому ученику: «" + user_by_login['student_name'] + "»"}), 403
+        # Проверка ФИО
+        cursor.execute("SELECT id FROM registered_students WHERE LOWER(student_name) = LOWER(?)", (s_name,))
+        if cursor.fetchone():
+            return jsonify({"error": "Ученик «" + s_name + "» уже зарегистрирован. Перейдите во вкладку «Войти»!"}), 400
 
-            return jsonify({
-                "success": True,
-                "student_name": user_by_login['student_name'],
-                "class_name": user_by_login['class_name'],
-                "phone_number": user_by_login['phone_number'],
-                "student_login": user_by_login['student_login']
-            })
+        # Проверка номера телефона
+        cursor.execute("SELECT id FROM registered_students WHERE phone_number = ?", (phone,))
+        if cursor.fetchone():
+            return jsonify({"error": "Этот номер телефона уже зарегистрирован в системе!"}), 400
 
-        # 2. Проверяем, не регистрировался ли ученик с такими ФИО
-        cursor.execute("SELECT * FROM registered_students WHERE LOWER(student_name) = LOWER(?)", (s_name,))
-        user_by_name = cursor.fetchone()
-        if user_by_name:
-            return jsonify({
-                "error": "Ученик «" + s_name + "» уже зарегистрирован с логином «" + user_by_name['student_login'] + "». Используйте свой логин!"
-            }), 403
-
-        # 3. Проверяем номер телефона
-        cursor.execute("SELECT * FROM registered_students WHERE phone_number = ?", (phone,))
-        user_by_phone = cursor.fetchone()
-        if user_by_phone:
-            return jsonify({
-                "error": "Номер телефона «" + phone + "» уже привязан к ученику «" + user_by_phone['student_name'] + "»!"
-            }), 403
-
-        # 4. Проверяем телефон (мультиаккаунты)
+        # Проверка одного устройства
         if device_token:
-            cursor.execute("SELECT * FROM registered_students WHERE device_token = ?", (device_token,))
-            device_owner = cursor.fetchone()
-            if device_owner:
-                return jsonify({
-                    "error": "С этого телефона уже играет «" + device_owner['student_name'] + "» (" + device_owner['class_name'] + "). Создание второго аккаунта запрещено!"
-                }), 403
+            cursor.execute("SELECT student_name FROM registered_students WHERE device_token = ?", (device_token,))
+            owner = cursor.fetchone()
+            if owner:
+                return jsonify({"error": "С этого телефона уже играет «" + owner['student_name'] + "». Второй аккаунт запрещен!"}), 403
 
-        # 5. Сохраняем в постоянную базу данных
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute('''
             INSERT INTO registered_students (student_name, class_name, phone_number, student_login, student_password, device_info, device_token, registered_at)
@@ -307,7 +308,6 @@ def get_quiz_questions():
               )
             ORDER BY RANDOM()
         ''', (student_name, class_name))
-        
         rows = [dict(r) for r in cursor.fetchall()]
     return jsonify(rows)
 
@@ -319,9 +319,6 @@ def submit_answer():
     question_id = data.get('question_id')
     selected_idx = data.get('selected_idx')
     time_taken = data.get('time_taken', 0)
-
-    if not student_name or not class_name or question_id is None or selected_idx is None:
-        return jsonify({"error": "Неполные данные"}), 400
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -351,7 +348,7 @@ def submit_answer():
         "points_earned": points_earned
     })
 
-# --- АДМИНКА ---
+# --- АДМИНКА СУПЕРАДМИНА ---
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
     data = request.json or {}
@@ -397,34 +394,28 @@ def admin_me():
         }
     })
 
-# Полное управление классами
 @app.route('/api/admin/classes', methods=['POST', 'PUT', 'DELETE'])
 @login_required
 @superadmin_required
 def admin_manage_classes():
     with get_db() as conn:
         cursor = conn.cursor()
-        
         if request.method == 'POST':
             d = request.json or {}
             c_name = d.get('name', '').strip()
             count = int(d.get('students_count', 25))
-            if not c_name:
-                return jsonify({"error": "Укажите название класса"}), 400
             try:
                 cursor.execute("INSERT INTO classes (name, students_count) VALUES (?, ?)", (c_name, count))
                 conn.commit()
-                return jsonify({"success": True, "message": "Класс успешно добавлен"})
+                return jsonify({"success": True, "message": "Класс добавлен"})
             except sqlite3.IntegrityError:
-                return jsonify({"error": "Класс с таким названием уже существует"}), 400
+                return jsonify({"error": "Такой класс уже есть"}), 400
 
         elif request.method == 'PUT':
             d = request.json or {}
             c_id = d.get('id')
             c_name = d.get('name', '').strip()
             count = int(d.get('students_count', 25))
-            if not c_id or not c_name:
-                return jsonify({"error": "Некорректные данные"}), 400
             try:
                 cursor.execute("SELECT name FROM classes WHERE id = ?", (c_id,))
                 old_row = cursor.fetchone()
@@ -432,18 +423,30 @@ def admin_manage_classes():
                     old_name = old_row['name']
                     cursor.execute("UPDATE registered_students SET class_name = ? WHERE class_name = ?", (c_name, old_name))
                     cursor.execute("UPDATE submissions SET class_name = ? WHERE class_name = ?", (c_name, old_name))
-
                 cursor.execute("UPDATE classes SET name = ?, students_count = ? WHERE id = ?", (c_name, count, c_id))
                 conn.commit()
                 return jsonify({"success": True, "message": "Класс обновлен"})
             except sqlite3.IntegrityError:
-                return jsonify({"error": "Класс с таким названием уже существует"}), 400
+                return jsonify({"error": "Класс с таким именем уже существует"}), 400
 
         elif request.method == 'DELETE':
             c_id = request.args.get('id')
             cursor.execute("DELETE FROM classes WHERE id = ?", (c_id,))
             conn.commit()
             return jsonify({"success": True, "message": "Класс удален"})
+
+@app.route('/api/admin/registered-students')
+@login_required
+@superadmin_required
+def admin_registered_students():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, student_name, class_name, phone_number, student_login, student_password, device_info, registered_at 
+            FROM registered_students 
+            ORDER BY id DESC
+        ''')
+        return jsonify([dict(r) for r in cursor.fetchall()])
 
 @app.route('/api/admin/questions', methods=['GET', 'POST', 'DELETE'])
 @login_required
@@ -453,34 +456,16 @@ def admin_questions():
         if request.method == 'GET':
             cursor.execute("SELECT * FROM questions ORDER BY id DESC")
             return jsonify([dict(r) for r in cursor.fetchall()])
-
         elif request.method == 'POST':
             d = request.json or {}
-            text = d.get('question_text', '').strip()
-            opt_a = d.get('opt_a', '').strip()
-            opt_b = d.get('opt_b', '').strip()
-            opt_c = d.get('opt_c', '').strip()
-            opt_d = d.get('opt_d', '').strip()
-            correct = int(d.get('correct_idx', 0))
-            points = int(d.get('points', 10))
-            time_lim = int(d.get('time_limit', 30))
-
-            if not text or not opt_a or not opt_b:
-                return jsonify({"error": "Заполните условие и варианты"}), 400
-
             cursor.execute('''
                 INSERT INTO questions (author_id, author_name, question_text, opt_a, opt_b, opt_c, opt_d, correct_idx, points, time_limit)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (session['user_id'], session['full_name'], text, opt_a, opt_b, opt_c, opt_d, correct, points, time_lim))
+            ''', (session['user_id'], session['full_name'], d.get('question_text'), d.get('opt_a'), d.get('opt_b'), d.get('opt_c'), d.get('opt_d'), int(d.get('correct_idx', 0)), int(d.get('points', 10)), int(d.get('time_limit', 30))))
             conn.commit()
             return jsonify({"success": True})
-
         elif request.method == 'DELETE':
-            q_id = request.args.get('id')
-            if session['role'] == 'superadmin':
-                cursor.execute("DELETE FROM questions WHERE id = ?", (q_id,))
-            else:
-                cursor.execute("DELETE FROM questions WHERE id = ? AND author_id = ?", (q_id, session['user_id']))
+            cursor.execute("DELETE FROM questions WHERE id = ?", (request.args.get('id'),))
             conn.commit()
             return jsonify({"success": True})
 
@@ -497,20 +482,6 @@ def admin_submissions():
         ''')
         return jsonify([dict(r) for r in cursor.fetchall()])
 
-# Выгрузка всех учеников: Телефон, Логин, Пароль, Модель устройства (Только Суперадмин)
-@app.route('/api/admin/registered-students')
-@login_required
-@superadmin_required
-def admin_registered_students():
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT id, student_name, class_name, phone_number, student_login, student_password, device_info, registered_at 
-            FROM registered_students 
-            ORDER BY id DESC
-        ''')
-        return jsonify([dict(r) for r in cursor.fetchall()])
-
 @app.route('/api/admin/users', methods=['GET', 'POST', 'DELETE'])
 @login_required
 @superadmin_required
@@ -520,33 +491,15 @@ def admin_users():
         if request.method == 'GET':
             cursor.execute("SELECT id, username, full_name, role FROM users ORDER BY id ASC")
             return jsonify([dict(r) for r in cursor.fetchall()])
-
         elif request.method == 'POST':
             d = request.json or {}
-            uname = d.get('username', '').strip()
-            pword = d.get('password', '').strip()
-            fname = d.get('full_name', '').strip()
-            role = d.get('role', 'teacher')
-
-            if not uname or not pword or not fname:
-                return jsonify({"error": "Заполните все поля"}), 400
-
-            try:
-                hashed = generate_password_hash(pword)
-                cursor.execute("INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
-                               (uname, hashed, fname, role))
-                conn.commit()
-                return jsonify({"success": True})
-            except sqlite3.IntegrityError:
-                return jsonify({"error": "Пользователь с таким логином уже существует"}), 400
-
+            hashed = generate_password_hash(d.get('password'))
+            cursor.execute("INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
+                           (d.get('username'), hashed, d.get('full_name'), 'teacher'))
+            conn.commit()
+            return jsonify({"success": True})
         elif request.method == 'DELETE':
-            u_id = request.args.get('id')
-            cursor.execute("SELECT role FROM users WHERE id = ?", (u_id,))
-            u = cursor.fetchone()
-            if u and u['role'] == 'superadmin':
-                return jsonify({"error": "Нельзя удалить Главного Администратора"}), 400
-            cursor.execute("DELETE FROM users WHERE id = ?", (u_id,))
+            cursor.execute("DELETE FROM users WHERE id = ? AND role != 'superadmin'", (request.args.get('id'),))
             conn.commit()
             return jsonify({"success": True})
 
